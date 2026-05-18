@@ -50,7 +50,7 @@ export function CheckoutPage() {
     phone: '',
     street: '',
     city: 'Hlohovec',
-    postalCode: '931 01',
+    postalCode: '920 01',
     deliveryNotes: '',
     kitchenNotes: '',
     courierNotes: '',
@@ -58,6 +58,7 @@ export function CheckoutPage() {
   })
   const [promoInput, setPromoInput] = useState('')
   const [promoError, setPromoError] = useState('')
+  const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Delivery zone logic
@@ -91,40 +92,75 @@ export function CheckoutPage() {
 
   const handleSubmit = async () => {
     if (items.length === 0) return
+    setSubmitError('')
 
     // Basic validation
     if (!formData.firstName || !formData.lastName || !formData.phone) {
+      setSubmitError('Vyplnte meno, priezvisko a telefon.')
       return
     }
     if (deliveryType === 'DELIVERY' && (!formData.street || !formData.city)) {
+      setSubmitError('Vyplnte adresu dorucenia.')
       return
     }
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          guestEmail: formData.email,
+          guestPhone: formData.phone,
+          guestFirstName: formData.firstName,
+          guestLastName: formData.lastName,
+          deliveryType,
+          deliveryAddress: formData.street,
+          deliveryCity: formData.city,
+          deliveryPostalCode: formData.postalCode,
+          deliveryNotes: formData.deliveryNotes,
+          paymentMethod: deliveryType === 'PICKUP' && formData.paymentMethod === 'CASH_ON_DELIVERY'
+            ? 'PICKUP_PAY'
+            : formData.paymentMethod,
+          promoCode: promoCode || undefined,
+          notes: [formData.kitchenNotes, formData.courierNotes].filter(Boolean).join(' | '),
+          items: items.map((item) => ({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            addons: item.addons.map((addon) => addon.id),
+            notes: item.notes,
+          })),
+        }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Objednavku sa nepodarilo vytvorit')
+      }
 
-    const orderNumber = `DSF-${String(Math.floor(Math.random() * 999)).padStart(3, '0')}`
+      const order = json.data
+      setCurrentOrder({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        estimatedDeliveryTime: order.estimatedDeliveryTime || (deliveryType === 'DELIVERY' ? currentZone.time : '15-20 min'),
+        items: order.items.map((item: { menuItemName: string; menuItemNameSk: string; quantity: number; unitPrice: number }) => ({
+          name: item.menuItemName,
+          nameSk: item.menuItemNameSk || item.menuItemName,
+          quantity: item.quantity,
+          price: item.unitPrice,
+        })),
+        deliveryType: order.deliveryType,
+        total: order.totalAmount,
+      })
 
-    setCurrentOrder({
-      id: `order-${Date.now()}`,
-      orderNumber,
-      status: 'CREATED',
-      estimatedDeliveryTime: deliveryType === 'DELIVERY' ? currentZone.time : '15-20 min',
-      items: items.map((i) => ({
-        name: i.name,
-        nameSk: i.nameSk,
-        quantity: i.quantity,
-        price: i.price,
-      })),
-      deliveryType,
-      total,
-    })
-
-    clearCart()
-    setIsSubmitting(false)
-    navigate('order-tracking')
+      clearCart()
+      navigate('order-tracking')
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Objednavku sa nepodarilo vytvorit')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (items.length === 0 && !isSubmitting) {
@@ -589,6 +625,10 @@ export function CheckoutPage() {
                 <p className="text-xs text-muted-foreground mt-3">
                   Pridajte ešte za {(currentZone.freeDeliveryThreshold - subtotal).toFixed(2)}€ a doručenie budete mať zadarmo!
                 </p>
+              )}
+
+              {submitError && (
+                <p className="text-xs text-destructive mt-3">{submitError}</p>
               )}
 
               <Button

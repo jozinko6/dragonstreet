@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useNavigation, useOrder } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -34,8 +35,56 @@ const statusOrder = [
 const problemStatus = 'PROBLEM'
 
 export function OrderTracking() {
-  const { currentOrder } = useOrder()
+  const { currentOrder, setCurrentOrder } = useOrder()
   const { navigate } = useNavigation()
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    if (!currentOrder?.id) return
+
+    let isMounted = true
+
+    async function loadOrder() {
+      try {
+        const response = await fetch(`/api/orders/${currentOrder!.id}`, { cache: 'no-store' })
+        const json = await response.json()
+        if (!response.ok || !json.success) {
+          throw new Error(json.error || 'Objednavku sa nepodarilo nacitat')
+        }
+
+        const order = json.data
+        if (isMounted) {
+          setCurrentOrder({
+            id: order.id,
+            orderNumber: order.orderNumber,
+            status: order.status,
+            estimatedDeliveryTime: order.estimatedDeliveryTime || currentOrder!.estimatedDeliveryTime,
+            items: order.items.map((item: { menuItemName: string; menuItemNameSk: string; quantity: number; unitPrice: number }) => ({
+              name: item.menuItemName,
+              nameSk: item.menuItemNameSk || item.menuItemName,
+              quantity: item.quantity,
+              price: item.unitPrice,
+            })),
+            deliveryType: order.deliveryType,
+            total: order.totalAmount,
+          })
+          setLoadError('')
+        }
+      } catch (err) {
+        if (isMounted) {
+          setLoadError(err instanceof Error ? err.message : 'Objednavku sa nepodarilo nacitat')
+        }
+      }
+    }
+
+    loadOrder()
+    const intervalId = window.setInterval(loadOrder, 7000)
+
+    return () => {
+      isMounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [currentOrder?.id, setCurrentOrder])
 
   if (!currentOrder) {
     return (
@@ -90,6 +139,14 @@ export function OrderTracking() {
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <Card className="border-0 shadow-sm mb-6 bg-amber-50 border-amber-200">
+          <CardContent className="p-4 text-sm text-amber-800">
+            {loadError}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Problem Banner */}
       {isProblem && (

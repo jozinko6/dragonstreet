@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { OrderStatus, DeliveryType, PaymentMethod, PaymentStatus } from '@prisma/client'
 
+type OrderItemCreateData = {
+  menuItemId: string
+  menuItemName: string
+  menuItemNameSk: string
+  quantity: number
+  unitPrice: number
+  addonsPrice: number
+  totalPrice: number
+  notes: string
+  selectedAddons: {
+    create: Array<{
+      addonId: string
+      addonName: string
+      addonNameSk: string
+      price: number
+    }>
+  }
+}
+
 // Generate a unique order number like DSF-001
 async function generateOrderNumber(): Promise<string> {
   const lastOrder = await db.order.findFirst({
@@ -138,7 +157,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate subtotal from items
     let subtotal = 0
-    const orderItemsData = []
+    const orderItemsData: OrderItemCreateData[] = []
 
     for (const item of items) {
       // Fetch menu item to get current price
@@ -166,7 +185,7 @@ export async function POST(request: NextRequest) {
       let addonsPrice = 0
 
       // Process addons
-      const selectedAddonsData = []
+      const selectedAddonsData: OrderItemCreateData['selectedAddons']['create'] = []
       if (item.addons && Array.isArray(item.addons)) {
         for (const addonId of item.addons) {
           const addon = menuItem.addons.find((a) => a.id === addonId)

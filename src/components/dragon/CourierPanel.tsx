@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { mockOrders, statusLabels } from '@/lib/data'
+import { useEffect, useState } from 'react'
+import { statusLabels } from '@/lib/data'
+import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -43,9 +44,30 @@ function getNextAction(status: string): { label: string; nextStatus: string } | 
 
 export function CourierPanel() {
   const [isAvailable, setIsAvailable] = useState(true)
-  const [orders, setOrders] = useState(mockOrders.filter((o) => o.deliveryType === 'DELIVERY'))
+  const [orders, setOrders] = useState<OrderListItem[]>([])
   const [problemOrderId, setProblemOrderId] = useState<string | null>(null)
   const [problemReason, setProblemReason] = useState('')
+  const [error, setError] = useState('')
+
+  const loadOrders = async () => {
+    try {
+      const response = await fetch('/api/orders?limit=100', { cache: 'no-store' })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Objednavky sa nepodarilo nacitat')
+      }
+      setOrders(json.data.map(mapApiOrder).filter((order: OrderListItem) => order.deliveryType === 'DELIVERY'))
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Objednavky sa nepodarilo nacitat')
+    }
+  }
+
+  useEffect(() => {
+    loadOrders()
+    const intervalId = window.setInterval(loadOrders, 10000)
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const activeStatuses = ['COURIER_ASSIGNED', 'COURIER_ON_WAY', 'PICKED_UP', 'OUT_FOR_DELIVERY']
   const assignedOrders = orders.filter((o) => activeStatuses.includes(o.status))
@@ -54,17 +76,32 @@ export function CourierPanel() {
     ['READY_FOR_PICKUP'].includes(o.status)
   )
 
-  const changeStatus = (orderId: string, newStatus: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    )
+  const changeStatus = async (orderId: string, newStatus: string, note?: string) => {
+    const previousOrders = orders
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)))
     setProblemOrderId(null)
     setProblemReason('')
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, note, changedBy: 'courier' }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Stav sa nepodarilo ulozit')
+      }
+      await loadOrders()
+    } catch (err) {
+      setOrders(previousOrders)
+      setError(err instanceof Error ? err.message : 'Stav sa nepodarilo ulozit')
+    }
   }
 
   const handleProblem = (orderId: string) => {
     if (problemReason.trim()) {
-      changeStatus(orderId, 'PROBLEM')
+      changeStatus(orderId, 'PROBLEM', problemReason)
     }
   }
 
@@ -93,6 +130,8 @@ export function CourierPanel() {
         </div>
 
         {/* Stats */}
+        {error && <div className="mb-4 text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</div>}
+
         <div className="grid grid-cols-3 gap-3 mb-6">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-3 text-center">

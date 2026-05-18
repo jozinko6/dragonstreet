@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { mockOrders, statusLabels } from '@/lib/data'
+import { useEffect, useState } from 'react'
+import { statusLabels } from '@/lib/data'
+import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,7 +10,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChefHat, Clock, AlertTriangle, Printer, CheckCircle2, Flame } from 'lucide-react'
 
 export function KitchenPanel() {
-  const [orders, setOrders] = useState(mockOrders)
+  const [orders, setOrders] = useState<OrderListItem[]>([])
+  const [error, setError] = useState('')
+
+  const loadOrders = async () => {
+    try {
+      const response = await fetch('/api/orders?limit=100', { cache: 'no-store' })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Objednavky sa nepodarilo nacitat')
+      }
+      setOrders(json.data.map(mapApiOrder))
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Objednavky sa nepodarilo nacitat')
+    }
+  }
+
+  useEffect(() => {
+    loadOrders()
+    const intervalId = window.setInterval(loadOrders, 10000)
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const activeOrders = orders.filter((o) =>
     ['ACCEPTED', 'PREPARING'].includes(o.status)
@@ -18,10 +40,25 @@ export function KitchenPanel() {
     ['READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'].includes(o.status)
   )
 
-  const changeStatus = (orderId: string, newStatus: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    )
+  const changeStatus = async (orderId: string, newStatus: string) => {
+    const previousOrders = orders
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)))
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, changedBy: 'kitchen' }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Stav sa nepodarilo ulozit')
+      }
+      await loadOrders()
+    } catch (err) {
+      setOrders(previousOrders)
+      setError(err instanceof Error ? err.message : 'Stav sa nepodarilo ulozit')
+    }
   }
 
   const formatTime = (time: string) => {
@@ -47,6 +84,8 @@ export function KitchenPanel() {
         </div>
 
         <Tabs defaultValue="active">
+          {error && <div className="mb-4 text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</div>}
+
           <TabsList className="bg-muted/50 mb-6">
             <TabsTrigger value="active" className="text-xs">
               <Flame className="w-3.5 h-3.5 mr-1.5" />

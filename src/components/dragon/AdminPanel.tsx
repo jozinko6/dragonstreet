@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAdmin } from '@/lib/store'
-import { mockOrders, mockCouriers, statusLabels, menuItems, deliveryZones } from '@/lib/data'
+import { mockCouriers, statusLabels, menuItems, deliveryZones } from '@/lib/data'
 import type { MenuItem, MenuResponse } from '@/lib/menu-api'
+import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,9 +41,6 @@ export function AdminPanel() {
             <TabsTrigger value="orders" className="text-xs">
               <ShoppingBag className="w-3.5 h-3.5 mr-1.5" />
               Objednávky
-              <Badge className="ml-1.5 bg-dragon-red text-white text-[9px] h-4 px-1.5">
-                {mockOrders.filter((o) => ['CREATED', 'ACCEPTED', 'PREPARING'].includes(o.status)).length}
-              </Badge>
             </TabsTrigger>
             <TabsTrigger value="menu" className="text-xs">
               <UtensilsCrossed className="w-3.5 h-3.5 mr-1.5" />
@@ -87,9 +85,30 @@ export function AdminPanel() {
 
 function OrdersTab() {
   const [search, setSearch] = useState('')
-  const [orders, setOrders] = useState(mockOrders)
+  const [orders, setOrders] = useState<OrderListItem[]>([])
   const [problemOrderId, setProblemOrderId] = useState<string | null>(null)
   const [problemReason, setProblemReason] = useState('')
+  const [error, setError] = useState('')
+
+  const loadOrders = async () => {
+    try {
+      const response = await fetch('/api/orders?limit=100', { cache: 'no-store' })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Objednavky sa nepodarilo nacitat')
+      }
+      setOrders(json.data.map(mapApiOrder))
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Objednavky sa nepodarilo nacitat')
+    }
+  }
+
+  useEffect(() => {
+    loadOrders()
+    const intervalId = window.setInterval(loadOrders, 10000)
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const activeOrders = orders.filter((o) =>
     !['DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED'].includes(o.status)
@@ -98,23 +117,40 @@ function OrdersTab() {
     ['DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED'].includes(o.status)
   )
 
-  const changeStatus = (orderId: string, newStatus: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    )
+  const changeStatus = async (orderId: string, newStatus: string, note?: string) => {
+    const previousOrders = orders
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)))
     setProblemOrderId(null)
     setProblemReason('')
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, note, changedBy: 'admin' }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Stav sa nepodarilo ulozit')
+      }
+      await loadOrders()
+    } catch (err) {
+      setOrders(previousOrders)
+      setError(err instanceof Error ? err.message : 'Stav sa nepodarilo ulozit')
+    }
   }
 
   const handleProblem = (orderId: string) => {
     if (problemReason.trim()) {
-      changeStatus(orderId, 'PROBLEM')
+      changeStatus(orderId, 'PROBLEM', problemReason)
     }
   }
 
   return (
     <div className="space-y-6">
       {/* Stats */}
+      {error && <div className="text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</div>}
+
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: 'Nové', count: orders.filter((o) => o.status === 'CREATED').length, color: 'text-blue-600 bg-blue-50' },
