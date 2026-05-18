@@ -1,14 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAdmin } from '@/lib/store'
 import { mockOrders, mockCouriers, statusLabels, menuItems, deliveryZones } from '@/lib/data'
+import type { MenuItem, MenuResponse } from '@/lib/menu-api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -19,7 +21,7 @@ import {
 import {
   Settings, ShoppingBag, UtensilsCrossed, Bike, BarChart3,
   Clock, Phone, MapPin, ChevronRight, Search, Eye, UserPlus,
-  AlertTriangle, Copy, Check, Megaphone, Star, Flame
+  AlertTriangle, Copy, Check, Megaphone, Star, Flame, Upload, Trash2, Pencil, Save
 } from 'lucide-react'
 
 export function AdminPanel() {
@@ -64,7 +66,7 @@ export function AdminPanel() {
             <OrdersTab />
           </TabsContent>
           <TabsContent value="menu">
-            <MenuTab />
+            <AdminMenuTab />
           </TabsContent>
           <TabsContent value="couriers">
             <CouriersTab />
@@ -386,6 +388,300 @@ function MenuTab() {
 }
 
 // ─── Couriers Tab ────────────────────────────────────────────────────────────────
+
+type MenuFormState = {
+  id: string | null
+  categoryId: string
+  nameSk: string
+  descriptionSk: string
+  price: string
+  image: string
+  weight: string
+  allergens: string
+  isAvailable: boolean
+  isPopular: boolean
+  isNew: boolean
+  isSpicy: boolean
+  isVegetarian: boolean
+  isDailyMenu: boolean
+  isWeeklySpecial: boolean
+}
+
+const emptyMenuForm: MenuFormState = {
+  id: null,
+  categoryId: '',
+  nameSk: '',
+  descriptionSk: '',
+  price: '',
+  image: '',
+  weight: '',
+  allergens: '',
+  isAvailable: true,
+  isPopular: false,
+  isNew: false,
+  isSpicy: false,
+  isVegetarian: false,
+  isDailyMenu: false,
+  isWeeklySpecial: false,
+}
+
+function AdminMenuTab() {
+  const [menuData, setMenuData] = useState<MenuResponse>({ categories: [], items: [] })
+  const [form, setForm] = useState<MenuFormState>(emptyMenuForm)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [search, setSearch] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  const loadMenu = async () => {
+    try {
+      setIsLoading(true)
+      setError('')
+      const response = await fetch('/api/admin/menu', { cache: 'no-store' })
+      const json = await response.json()
+      if (!response.ok || !json.success) throw new Error(json.error || 'Menu sa nepodarilo nacitat')
+      setMenuData(json.data)
+      setForm((current) => ({ ...current, categoryId: current.categoryId || json.data.categories[0]?.id || '' }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Menu sa nepodarilo nacitat')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadMenu()
+  }, [])
+
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return menuData.items
+    return menuData.items.filter((item) =>
+      item.nameSk.toLowerCase().includes(q) ||
+      item.descriptionSk.toLowerCase().includes(q)
+    )
+  }, [menuData.items, search])
+
+  const categoryCounts = useMemo(() => {
+    return new Map(menuData.categories.map((category) => [category.id, category.items?.length ?? 0]))
+  }, [menuData.categories])
+
+  const resetForm = () => {
+    setForm({ ...emptyMenuForm, categoryId: menuData.categories[0]?.id || '' })
+    setSelectedFile(null)
+    setError('')
+    setNotice('')
+  }
+
+  const editItem = (item: MenuItem) => {
+    setForm({
+      id: item.id,
+      categoryId: item.categoryId,
+      nameSk: item.nameSk || item.name,
+      descriptionSk: item.descriptionSk || item.description,
+      price: String(item.price),
+      image: item.image,
+      weight: item.weight || '',
+      allergens: item.allergens.join(','),
+      isAvailable: item.isAvailable,
+      isPopular: item.isPopular,
+      isNew: item.isNew,
+      isSpicy: item.isSpicy,
+      isVegetarian: item.isVegetarian,
+      isDailyMenu: item.isDailyMenu,
+      isWeeklySpecial: item.isWeeklySpecial,
+    })
+    setSelectedFile(null)
+    setNotice('')
+    setError('')
+  }
+
+  const uploadImage = async () => {
+    if (!selectedFile) return form.image
+    const formData = new FormData()
+    formData.append('file', selectedFile)
+    const response = await fetch('/api/admin/upload', { method: 'POST', body: formData })
+    const json = await response.json()
+    if (!response.ok || !json.success) throw new Error(json.error || 'Obrazok sa nepodarilo nahrat')
+    return json.data.url as string
+  }
+
+  const saveItem = async () => {
+    if (!form.categoryId || !form.nameSk.trim() || Number(form.price) <= 0) {
+      setError('Vyplnte kategoriu, nazov a platnu cenu.')
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      setError('')
+      setNotice('')
+      const image = await uploadImage()
+      const payload = {
+        categoryId: form.categoryId,
+        name: form.nameSk.trim(),
+        nameSk: form.nameSk.trim(),
+        description: form.descriptionSk.trim(),
+        descriptionSk: form.descriptionSk.trim(),
+        price: Number(form.price),
+        image,
+        weight: form.weight.trim(),
+        allergens: form.allergens,
+        isAvailable: form.isAvailable,
+        isPopular: form.isPopular,
+        isNew: form.isNew,
+        isSpicy: form.isSpicy,
+        isVegetarian: form.isVegetarian,
+        isDailyMenu: form.isDailyMenu,
+        isWeeklySpecial: form.isWeeklySpecial,
+      }
+      const response = await fetch(form.id ? `/api/admin/menu/${form.id}` : '/api/admin/menu', {
+        method: form.id ? 'PATCH' : 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) throw new Error(json.error || 'Polozku sa nepodarilo ulozit')
+      setNotice(form.id ? 'Polozka bola upravena.' : 'Polozka bola vytvorena.')
+      resetForm()
+      await loadMenu()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ulozenie zlyhalo')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const deleteItem = async (item: MenuItem) => {
+    if (!window.confirm(`Naozaj zmazat ${item.nameSk || item.name}?`)) return
+    try {
+      setError('')
+      const response = await fetch(`/api/admin/menu/${item.id}`, { method: 'DELETE' })
+      const json = await response.json()
+      if (!response.ok || !json.success) throw new Error(json.error || 'Polozku sa nepodarilo zmazat')
+      if (form.id === item.id) resetForm()
+      setNotice('Polozka bola zmazana.')
+      await loadMenu()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Mazanie zlyhalo')
+    }
+  }
+
+  const toggleBoolean = (key: keyof Pick<MenuFormState,
+    'isAvailable' | 'isPopular' | 'isNew' | 'isSpicy' | 'isVegetarian' | 'isDailyMenu' | 'isWeeklySpecial'
+  >) => {
+    setForm((current) => ({ ...current, [key]: !current[key] }))
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-bold text-dragon-dark">Sprava menu</h3>
+        <Button onClick={resetForm} className="bg-dragon-red hover:bg-dragon-red-dark text-white text-xs">+ Pridat polozku</Button>
+      </div>
+      {error && <div className="text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</div>}
+      {notice && <div className="text-sm text-green-700 bg-green-50 rounded-lg p-3">{notice}</div>}
+
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              {form.id ? <Pencil className="w-4 h-4 text-dragon-red" /> : <UtensilsCrossed className="w-4 h-4 text-dragon-red" />}
+              <h4 className="font-semibold text-dragon-dark text-sm">{form.id ? 'Upravit polozku' : 'Nova polozka'}</h4>
+            </div>
+            <Select value={form.categoryId} onValueChange={(value) => setForm((current) => ({ ...current, categoryId: value }))}>
+              <SelectTrigger><SelectValue placeholder="Kategoria" /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                {menuData.categories.map((category) => <SelectItem key={category.id} value={category.id}>{category.nameSk || category.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Input placeholder="Nazov" value={form.nameSk} onChange={(event) => setForm((current) => ({ ...current, nameSk: event.target.value }))} />
+            <Textarea placeholder="Popis" value={form.descriptionSk} onChange={(event) => setForm((current) => ({ ...current, descriptionSk: event.target.value }))} rows={3} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input type="number" min="0" step="0.10" placeholder="Cena" value={form.price} onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} />
+              <Input placeholder="Gramaz" value={form.weight} onChange={(event) => setForm((current) => ({ ...current, weight: event.target.value }))} />
+            </div>
+            <Input placeholder="Alergeny, napr. 1,3,7" value={form.allergens} onChange={(event) => setForm((current) => ({ ...current, allergens: event.target.value }))} />
+            <Input placeholder="URL obrazka" value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value }))} />
+            <label className="flex items-center gap-3 rounded-lg border border-dashed p-3 cursor-pointer hover:bg-muted/40">
+              <Upload className="w-4 h-4 text-dragon-red" />
+              <span className="text-xs text-muted-foreground flex-1 truncate">{selectedFile ? selectedFile.name : 'Nahrat JPG, PNG alebo WebP do 5 MB'}</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} />
+            </label>
+            {form.image && <img src={form.image} alt="Nahlad polozky" className="w-full h-36 object-cover rounded-lg" />}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                ['isAvailable', 'Dostupne'],
+                ['isPopular', 'Popularne'],
+                ['isNew', 'Novinka'],
+                ['isSpicy', 'Pikantne'],
+                ['isVegetarian', 'Vegetarianske'],
+                ['isDailyMenu', 'Denne menu'],
+                ['isWeeklySpecial', 'Tyzdnovy special'],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center justify-between gap-2 text-xs rounded-lg bg-muted/50 px-3 py-2">
+                  {label}
+                  <Switch checked={Boolean(form[key as keyof MenuFormState])} onCheckedChange={() => toggleBoolean(key as Parameters<typeof toggleBoolean>[0])} />
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={saveItem} disabled={isSaving} className="flex-1 bg-dragon-red hover:bg-dragon-red-dark text-white">
+                <Save className="w-4 h-4 mr-2" />{isSaving ? 'Ukladam...' : 'Ulozit'}
+              </Button>
+              {form.id && <Button variant="outline" onClick={resetForm}>Zrusit</Button>}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="text-2xl font-bold text-dragon-dark">{menuData.categories.length}</div><div className="text-xs text-muted-foreground">Kategorii</div></CardContent></Card>
+            <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="text-2xl font-bold text-dragon-dark">{menuData.items.length}</div><div className="text-xs text-muted-foreground">Poloziek</div></CardContent></Card>
+            <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="text-2xl font-bold text-green-600">{menuData.items.filter((item) => item.isAvailable).length}</div><div className="text-xs text-muted-foreground">Dostupne</div></CardContent></Card>
+            <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="text-2xl font-bold text-orange-600">{menuData.items.filter((item) => item.isDailyMenu || item.isWeeklySpecial).length}</div><div className="text-xs text-muted-foreground">Specialy</div></CardContent></Card>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {menuData.categories.slice(0, 9).map((category) => (
+              <Card key={category.id} className="border-0 shadow-sm"><CardContent className="p-3 flex items-center justify-between"><span className="font-medium text-sm">{category.nameSk || category.name}</span><Badge variant="outline" className="text-[10px]">{categoryCounts.get(category.id) || 0}</Badge></CardContent></Card>
+            ))}
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="Hladat polozku..." value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" />
+          </div>
+          <div className="space-y-3">
+            {isLoading && <p className="text-sm text-muted-foreground">Nacitavam menu...</p>}
+            {!isLoading && filteredItems.map((item) => (
+              <Card key={item.id} className="border-0 shadow-sm overflow-hidden">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <img src={item.image || '/images/hero-bg.jpg'} alt={item.nameSk} className="w-16 h-16 rounded-lg object-cover" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-dragon-dark truncate">{item.nameSk || item.name}</span>
+                      {!item.isAvailable && <Badge className="bg-gray-100 text-gray-600 border-0 text-[10px]">Nedostupne</Badge>}
+                      {item.isDailyMenu && <Badge className="bg-blue-100 text-blue-700 border-0 text-[10px]">Denne menu</Badge>}
+                      {item.isWeeklySpecial && <Badge className="bg-purple-100 text-purple-700 border-0 text-[10px]">Special</Badge>}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.descriptionSk}</div>
+                    <div className="text-xs font-medium text-dragon-red mt-1">{item.price.toFixed(2)} EUR {item.weight ? `- ${item.weight}` : ''}</div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => editItem(item)}><Pencil className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => deleteItem(item)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {!isLoading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Ziadne polozky.</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function CouriersTab() {
   return (
