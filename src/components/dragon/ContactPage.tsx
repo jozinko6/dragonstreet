@@ -50,7 +50,7 @@ export function ContactPage() {
                 <div>
                   <h3 className="font-semibold text-dragon-dark text-sm">Telefón</h3>
                   <p className="text-sm text-muted-foreground">+421 912 345 678</p>
-                  <p className="text-xs text-muted-foreground">Po-Ne 10:00-22:00</p>
+                  <p className="text-xs text-muted-foreground">Ut-Ne (Po zatvorené)</p>
                 </div>
               </CardContent>
             </Card>
@@ -75,10 +75,11 @@ export function ContactPage() {
                 <div>
                   <h3 className="font-semibold text-dragon-dark text-sm">Otváracie hodiny</h3>
                   <div className="text-sm text-muted-foreground space-y-0.5">
-                    <div>Po-Št: 10:00 – 21:00</div>
-                    <div>Pi: 10:00 – 22:00</div>
-                    <div>So: 11:00 – 22:00</div>
-                    <div>Ne: 11:00 – 20:00</div>
+                    <div>Po: Zatvorené</div>
+                    <div>Ut-Št: 11:30 – 22:20</div>
+                    <div>Pi: 12:00 – 01:00</div>
+                    <div>So: 12:30 – 01:00</div>
+                    <div>Ne: 14:00 – 22:00</div>
                   </div>
                 </div>
               </CardContent>

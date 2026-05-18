@@ -24,7 +24,7 @@ export function AboutPage() {
             Dragon Street Food
           </h1>
           <p className="text-white/60 max-w-2xl mx-auto">
-            Príbeh o vášni k ázijskej kuchyni, ktorá priniesla autentické street food chute do srdca Hlohovca.
+            Príbeh o vášni k street foodu, ktorá priniesla tie najlepšie chute do srdca Hlohovca.
           </p>
         </div>
       </section>
@@ -35,13 +35,13 @@ export function AboutPage() {
           <h2 className="text-2xl font-bold text-dragon-dark mb-4">Náš príbeh</h2>
           <div className="prose max-w-none">
             <p className="text-muted-foreground leading-relaxed mb-4">
-              Dragon Street Food vznikol z jednoduchej myšlienky: priniesť autentické ázijské street food chute do Hlohovca. Naše korene siahajú k tradičným receptúram z Thajska, Číny a Japonska, ktoré sme obohatili o moderný prístup a lokálne suroviny.
+              Dragon Street Food vznikol z jednoduchej myšlienky: priniesť skvelý street food do Hlohovca. Naše korene siahajú k vášni pre burgre, kebaby, pinsy a všetko, čo robí street food nezabudnuteľným. Obohatili sme tradičné receptúry o moderný prístup a lokálne suroviny.
             </p>
             <p className="text-muted-foreground leading-relaxed mb-4">
               Veríme, že skvelé jedlo nemusí byť komplikované ani drahé. Musí byť čerstvé, chutné a pripravené s láskou. Presne to, čo street food znamená po celom svete – rýchle, jednoduché a nezabudnuteľné.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              Naše jedlá pripravujeme každý deň z čerstvých surovín. Rezance, curry, wok jedlá – všetko vzniká priamo pred vašimi očami v našej kuchyni. A ak nemáte čas zájsť k nám, radi vám doručíme až domov.
+              Naše jedlá pripravujeme každý deň z čerstvých surovín. Burgre, kebaby, pinsy, hot dogy, wrapy – všetko vzniká priamo pred vašimi očami v našej kuchyni. A ak nemáte čas zájsť k nám, radi vám doručíme až domov.
             </p>
           </div>
         </section>
@@ -66,10 +66,28 @@ export function AboutPage() {
           </div>
         </section>
 
+        {/* Stats */}
+        <section className="mb-12">
+          <div className="grid grid-cols-3 gap-6">
+            <div className="text-center p-6 rounded-2xl bg-dragon-red/5">
+              <div className="text-3xl font-bold text-dragon-red">500+</div>
+              <div className="text-sm text-muted-foreground mt-1">Doručení</div>
+            </div>
+            <div className="text-center p-6 rounded-2xl bg-dragon-orange/5">
+              <div className="text-3xl font-bold text-dragon-orange">4.8</div>
+              <div className="text-sm text-muted-foreground mt-1">Hodnotenie</div>
+            </div>
+            <div className="text-center p-6 rounded-2xl bg-dragon-lime/10">
+              <div className="text-3xl font-bold text-dragon-lime">80+</div>
+              <div className="text-sm text-muted-foreground mt-1">Jedál v menu</div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA */}
         <div className="text-center py-8 bg-dragon-dark rounded-2xl">
           <h3 className="text-xl font-bold text-white mb-2">Ochutnajte naše jedlá</h3>
-          <p className="text-white/50 text-sm mb-4">Objednajte si online a vychutnajte si chuť Ázie doma</p>
+          <p className="text-white/50 text-sm mb-4">Objednajte si online a vychutnajte si skvelý street food doma</p>
           <Button
             onClick={() => navigate('menu')}
             className="bg-dragon-red hover:bg-dragon-red-dark text-white rounded-xl px-8"

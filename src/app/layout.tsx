@@ -14,16 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dragon Street Food Hlohovec | Ázijské jedlo s donáškou",
-  description: "Moderné ázijské street food v Hlohovci. Čerstvé rezance, curry, wok jedlá a donáška až k vám. Objednajte online za menej než 60 sekúnd!",
-  keywords: ["street food Hlohovec", "donáška jedla Hlohovec", "ázijské jedlo Hlohovec", "obedové menu Hlohovec", "rozvoz jedla Hlohovec", "Dragon Street Food"],
+  title: "Dragon Street Food Hlohovec | Burgre, kebab, pinsa a donáška",
+  description: "Street food klasiky v Hlohovci. Burgre, kebab, pinsa, hot-dogy, wrapy a dezerty s donáškou. Objednaj online!",
+  keywords: ["street food Hlohovec", "burger Hlohovec", "kebab Hlohovec", "donáška jedla Hlohovec", "obedové menu Hlohovec", "Dragon Street Food"],
   authors: [{ name: "Dragon Street Food" }],
   icons: {
     icon: "/images/dragon-logo.png",
   },
   openGraph: {
     title: "Dragon Street Food Hlohovec",
-    description: "Ázijské street food s donáškou v Hlohovci. Objednajte online!",
+    description: "Street food klasiky v Hlohovci. Burgre, kebab, pinsa a dezerty s donáškou. Objednaj online!",
     siteName: "Dragon Street Food",
     type: "website",
   },

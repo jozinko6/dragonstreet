@@ -21,6 +21,9 @@ model RestaurantSettings {
   freeDeliveryThreshold Float   @default(0)
   isActive             Boolean  @default(true)
   acceptOnlineOrders   Boolean  @default(true)
+  nightDeliveryEnabled Boolean  @default(false)
+  nightDeliveryFrom    String?
+  nightDeliveryTo      String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
@@ -46,26 +49,36 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id            String      @id @default(cuid())
-  categoryId    String
-  name          String
-  nameSk        String      @default("")
-  description   String      @default("")
-  descriptionSk String      @default("")
-  price         Float
-  image         String      @default("")
-  isPopular     Boolean     @default(false)
-  isSpicy       Boolean     @default(false)
-  isNew         Boolean     @default(false)
-  isVegetarian  Boolean     @default(false)
-  isAvailable   Boolean     @default(true)
-  allergens     String      @default("") // Comma-separated allergen codes
-  sortOrder     Int         @default(0)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  category      MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  addons        ItemAddon[]
-  orderItems    OrderItem[]
+  id             String       @id @default(cuid())
+  categoryId     String
+  name           String
+  nameSk         String       @default("")
+  description    String       @default("")
+  descriptionSk  String       @default("")
+  price          Float
+  image          String       @default("")
+  isPopular      Boolean      @default(false)
+  isSpicy        Boolean      @default(false)
+  isNew          Boolean      @default(false)
+  isVegetarian   Boolean      @default(false)
+  isAvailable    Boolean      @default(true)
+  allergens      String       @default("") // Comma-separated allergen codes
+  weight         String?      // gramáž, e.g. "300g"
+  isAlcohol      Boolean      @default(false) // 18+ marking
+  isDailyMenu    Boolean      @default(false)
+  isWeeklySpecial Boolean     @default(false)
+  isDailyDeal    Boolean      @default(false)
+  availableFrom  String?      // time like "11:30"
+  availableTo    String?      // time like "22:00"
+  deliveryOnly   Boolean      @default(false)
+  pickupOnly     Boolean      @default(false)
+  channel        String       @default("all") // all, wolt, bistro, direct
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  category       MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  addons         ItemAddon[]
+  orderItems     OrderItem[]
 
   @@index([categoryId])
   @@index([isAvailable])
@@ -74,15 +87,17 @@ model MenuItem {
 }
 
 model ItemAddon {
-  id          String    @id @default(cuid())
-  menuItemId  String
-  name        String
-  nameSk      String    @default("")
-  price       Float     @default(0)
-  isAvailable Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  menuItemId    String
+  name          String
+  nameSk        String    @default("")
+  price         Float     @default(0)
+  isAvailable   Boolean   @default(true)
+  isModifier    Boolean   @default(false) // distinguishes add-ons from required modifiers
+  modifierGroup String?   // e.g. "dressing", "side", "spice_level"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  menuItem      MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   orderItemAddons OrderItemAddon[]
 
   @@index([menuItemId])
@@ -142,12 +157,14 @@ enum OrderStatus {
   PREPARING
   READY_FOR_PICKUP
   COURIER_ASSIGNED
+  COURIER_ON_WAY
   PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
   COMPLETED
   CANCELLED
   REFUNDED
+  PROBLEM
 }
 
 enum PaymentMethod {
@@ -281,6 +298,7 @@ model DeliveryZone {
   postalCodes    String   // Comma-separated postal codes
   deliveryFee    Float    @default(0)
   minOrderAmount Float    @default(0)
+  freeDeliveryThreshold Float @default(0)
   estimatedTime  String   @default("") // e.g., "30-45 min"
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
@@ -314,6 +332,39 @@ model PromoCode {
   @@index([code])
   @@index([isActive])
   @@index([validFrom])
+}
+
+// ─── Marketing Post ────────────────────────────────────────────────────────────
+
+model MarketingPost {
+  id         String    @id @default(cuid())
+  title      String
+  category   String    // facebook, instagram, story
+  content    String
+  hashtags   String    @default("")
+  imageUrl   String    @default("")
+  menuItemId String?
+  promoId    String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([category])
+  @@index([createdAt])
+}
+
+// ─── Opening Hours ─────────────────────────────────────────────────────────────
+
+model OpeningHours {
+  id          String   @id @default(cuid())
+  dayOfWeek   Int      // 0=Po, 1=Ut, 2=St, 3=Št, 4=Pi, 5=So, 6=Ne
+  openTime    String
+  closeTime   String
+  isClosed    Boolean  @default(false)
+  isDelivery  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([dayOfWeek])
 }
 
 // ─── Reviews ───────────────────────────────────────────────────────────────────

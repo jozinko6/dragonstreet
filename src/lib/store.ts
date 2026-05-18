@@ -43,17 +43,20 @@ export interface CartItem {
   notes: string
   isSpicy?: boolean
   isVegetarian?: boolean
+  isAlcohol?: boolean
 }
 
 interface CartState {
   items: CartItem[]
   deliveryType: 'DELIVERY' | 'PICKUP'
+  selectedDeliveryZone: number
   promoCode: string | null
   promoDiscount: number
   addItem: (item: CartItem) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
   setDeliveryType: (type: 'DELIVERY' | 'PICKUP') => void
+  setSelectedDeliveryZone: (zoneIndex: number) => void
   applyPromo: (code: string, discount: number) => void
   clearPromo: () => void
   clearCart: () => void
@@ -68,6 +71,7 @@ export const useCart = create<CartState>()(
     (set, get) => ({
       items: [],
       deliveryType: 'DELIVERY',
+      selectedDeliveryZone: 0,
       promoCode: null,
       promoDiscount: 0,
 
@@ -109,6 +113,7 @@ export const useCart = create<CartState>()(
       },
 
       setDeliveryType: (type) => set({ deliveryType: type }),
+      setSelectedDeliveryZone: (zoneIndex) => set({ selectedDeliveryZone: zoneIndex }),
 
       applyPromo: (code, discount) => set({ promoCode: code, promoDiscount: discount }),
       clearPromo: () => set({ promoCode: null, promoDiscount: 0 }),
@@ -124,9 +129,7 @@ export const useCart = create<CartState>()(
       getDeliveryFee: () => {
         const state = get()
         if (state.deliveryType === 'PICKUP') return 0
-        const subtotal = state.getSubtotal()
-        if (subtotal >= 30) return 0 // Free delivery over 30€
-        return 2.50
+        return 0 // Will be calculated in CheckoutPage based on zone
       },
 
       getTotal: () => {
@@ -169,7 +172,7 @@ export const useOrder = create<OrderState>((set) => ({
 }))
 
 // ===== ADMIN STORE =====
-export type AdminTab = 'orders' | 'menu' | 'couriers' | 'settings' | 'stats'
+export type AdminTab = 'orders' | 'menu' | 'couriers' | 'stats' | 'marketing'
 export type KitchenTab = 'active' | 'completed'
 export type CourierTab = 'available' | 'active' | 'completed'
 

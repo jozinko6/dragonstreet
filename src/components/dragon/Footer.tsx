@@ -22,7 +22,7 @@ export function Footer() {
               </div>
             </div>
             <p className="text-sm text-white/50 leading-relaxed">
-              Moderné ázijské street food v srdci Hlohovca. Čerstvé ingrediencie, autentické chute, rýchle doručenie.
+              Moderné street food v srdci Hlohovca. Burgre, kebaby, pinsy, hot dogy a dezerty s rýchlym doručením.
             </p>
           </div>
 
@@ -52,10 +52,11 @@ export function Footer() {
               <div className="flex items-start gap-2">
                 <Clock className="w-4 h-4 text-dragon-red shrink-0 mt-0.5" />
                 <div className="text-sm text-white/50">
-                  <div>Po-Št: 10:00 – 21:00</div>
-                  <div>Pi: 10:00 – 22:00</div>
-                  <div>So: 11:00 – 22:00</div>
-                  <div>Ne: 11:00 – 20:00</div>
+                  <div>Po: Zatvorené</div>
+                  <div>Ut-Št: 11:30 – 22:20</div>
+                  <div>Pi: 12:00 – 01:00</div>
+                  <div>So: 12:30 – 01:00</div>
+                  <div>Ne: 14:00 – 22:00</div>
                 </div>
               </div>
             </div>

@@ -4,18 +4,34 @@ import { useNavigation, useOrder } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Check, Truck, ChefHat, Store, Clock, Phone, Package, Home, Share2 } from 'lucide-react'
+import { Check, Truck, ChefHat, Store, Clock, Phone, Package, Home, Share2, AlertTriangle, Car, Footprints } from 'lucide-react'
 
 const trackingSteps = [
-  { key: 'CREATED', label: 'Objednávka vytvorená', icon: <Check className="w-4 h-4" /> },
-  { key: 'ACCEPTED', label: 'Prijatá reštauráciou', icon: <Store className="w-4 h-4" /> },
-  { key: 'PREPARING', label: 'Pripravuje sa', icon: <ChefHat className="w-4 h-4" /> },
-  { key: 'READY_FOR_PICKUP', label: 'Pripravená', icon: <Package className="w-4 h-4" /> },
-  { key: 'OUT_FOR_DELIVERY', label: 'Na ceste k vám', icon: <Truck className="w-4 h-4" /> },
-  { key: 'DELIVERED', label: 'Doručená', icon: <Home className="w-4 h-4" /> },
+  { key: 'CREATED', label: 'Objednávka vytvorená', emoji: '📋' },
+  { key: 'ACCEPTED', label: 'Prijatá reštauráciou', emoji: '✅' },
+  { key: 'PREPARING', label: 'Pripravuje sa', emoji: '🍳' },
+  { key: 'READY_FOR_PICKUP', label: 'Pripravená', emoji: '📦' },
+  { key: 'COURIER_ASSIGNED', label: 'Kuriér pridelený', emoji: '🚗' },
+  { key: 'COURIER_ON_WAY', label: 'Kuriér ide do prevádzky', emoji: '🚶' },
+  { key: 'PICKED_UP', label: 'Vyzdvihnutá kuriérom', emoji: '📦' },
+  { key: 'OUT_FOR_DELIVERY', label: 'Na ceste k vám', emoji: '🛵' },
+  { key: 'DELIVERED', label: 'Doručená', emoji: '🏠' },
 ]
 
-const statusOrder = ['CREATED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED']
+const statusOrder = [
+  'CREATED',
+  'ACCEPTED',
+  'PREPARING',
+  'READY_FOR_PICKUP',
+  'COURIER_ASSIGNED',
+  'COURIER_ON_WAY',
+  'PICKED_UP',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+]
+
+// Statuses that mean a problem occurred
+const problemStatus = 'PROBLEM'
 
 export function OrderTracking() {
   const { currentOrder } = useOrder()
@@ -37,20 +53,34 @@ export function OrderTracking() {
     )
   }
 
-  const currentStatusIndex = statusOrder.indexOf(currentOrder.status)
+  const isProblem = currentOrder.status === problemStatus
+  const currentStatusIndex = isProblem ? -1 : statusOrder.indexOf(currentOrder.status)
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 animate-float-up">
       {/* Order Header */}
       <div className="text-center mb-8">
         <div className="text-5xl mb-3">
-          {currentOrder.status === 'DELIVERED' ? '🎉' : currentOrder.status === 'OUT_FOR_DELIVERY' ? '🛵' : '🍳'}
+          {isProblem ? '⚠️' : currentOrder.status === 'DELIVERED' ? '🎉' : 
+           currentOrder.status === 'OUT_FOR_DELIVERY' ? '🛵' : 
+           currentOrder.status === 'COURIER_ON_WAY' ? '🚶' :
+           currentOrder.status === 'COURIER_ASSIGNED' ? '🚗' :
+           currentOrder.status === 'PICKED_UP' ? '📦' :
+           currentOrder.status === 'PREPARING' ? '🍳' : '📋'}
         </div>
         <h1 className="text-2xl font-bold text-dragon-dark mb-1">
-          {currentOrder.status === 'DELIVERED'
+          {isProblem
+            ? 'Problém s objednávkou'
+            : currentOrder.status === 'DELIVERED'
             ? 'Objednávka doručená!'
             : currentOrder.status === 'OUT_FOR_DELIVERY'
-            ? 'Kuriér je na ceste!'
+            ? 'Kuriér je na ceste k vám!'
+            : currentOrder.status === 'PICKED_UP'
+            ? 'Kuriér vyzdvihol objednávku!'
+            : currentOrder.status === 'COURIER_ON_WAY'
+            ? 'Kuriér ide do prevádzky!'
+            : currentOrder.status === 'COURIER_ASSIGNED'
+            ? 'Kuriér bol pridelený!'
             : 'Vaša objednávka sa pripravuje'}
         </h1>
         <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
@@ -61,8 +91,23 @@ export function OrderTracking() {
         </div>
       </div>
 
+      {/* Problem Banner */}
+      {isProblem && (
+        <Card className="border-0 shadow-sm mb-6 bg-amber-50 border-amber-200">
+          <CardContent className="p-5 flex items-center gap-4">
+            <AlertTriangle className="w-8 h-8 text-amber-500 shrink-0" />
+            <div>
+              <div className="text-sm font-semibold text-amber-800">Problém s objednávkou</div>
+              <div className="text-sm text-amber-700 mt-1">
+                Nastala chyba pri spracovaní vašej objednávky. Prosím, kontaktujte nás na telefónnom čísle nižšie.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ETA */}
-      {currentOrder.status !== 'DELIVERED' && (
+      {currentOrder.status !== 'DELIVERED' && !isProblem && (
         <Card className="border-0 shadow-sm mb-6 bg-dragon-dark text-white">
           <CardContent className="p-5 flex items-center gap-4">
             <Clock className="w-8 h-8 text-dragon-orange" />
@@ -75,52 +120,54 @@ export function OrderTracking() {
       )}
 
       {/* Progress Tracker */}
-      <Card className="border-0 shadow-sm mb-6">
-        <CardContent className="p-6">
-          <h3 className="font-bold text-dragon-dark mb-6">Stav objednávky</h3>
-          <div className="space-y-0">
-            {trackingSteps.map((step, index) => {
-              const isCompleted = index <= currentStatusIndex
-              const isCurrent = index === currentStatusIndex
-              const isLast = index === trackingSteps.length - 1
+      {!isProblem && (
+        <Card className="border-0 shadow-sm mb-6">
+          <CardContent className="p-6">
+            <h3 className="font-bold text-dragon-dark mb-6">Stav objednávky</h3>
+            <div className="space-y-0">
+              {trackingSteps.map((step, index) => {
+                const isCompleted = index <= currentStatusIndex
+                const isCurrent = index === currentStatusIndex
+                const isLast = index === trackingSteps.length - 1
 
-              return (
-                <div key={step.key} className="flex gap-4">
-                  {/* Line + Circle */}
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                        isCompleted
-                          ? 'bg-dragon-red text-white'
-                          : 'bg-muted text-muted-foreground'
-                      } ${isCurrent ? 'animate-dragon-glow' : ''}`}
-                    >
-                      {step.icon}
-                    </div>
-                    {!isLast && (
+                return (
+                  <div key={step.key} className="flex gap-4">
+                    {/* Line + Circle */}
+                    <div className="flex flex-col items-center">
                       <div
-                        className={`w-0.5 h-8 ${
-                          index < currentStatusIndex ? 'bg-dragon-red' : 'bg-muted'
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all text-sm ${
+                          isCompleted
+                            ? 'bg-dragon-red text-white'
+                            : 'bg-muted text-muted-foreground'
+                        } ${isCurrent ? 'animate-dragon-glow' : ''}`}
+                      >
+                        {step.emoji}
+                      </div>
+                      {!isLast && (
+                        <div
+                          className={`w-0.5 h-8 ${
+                            index < currentStatusIndex ? 'bg-dragon-red' : 'bg-muted'
+                          }`}
+                        />
+                      )}
+                    </div>
+                    {/* Label */}
+                    <div className="pt-1">
+                      <span
+                        className={`text-sm font-medium ${
+                          isCompleted ? 'text-dragon-dark' : 'text-muted-foreground'
                         }`}
-                      />
-                    )}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
                   </div>
-                  {/* Label */}
-                  <div className="pt-1">
-                    <span
-                      className={`text-sm font-medium ${
-                        isCompleted ? 'text-dragon-dark' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {step.label}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Order Items */}
       <Card className="border-0 shadow-sm mb-6">

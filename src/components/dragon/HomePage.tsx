@@ -5,12 +5,16 @@ import { menuItems, categories, openingHours } from '@/lib/data'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Flame, Truck, Clock, Star, ChevronRight, MapPin, Phone, ArrowRight } from 'lucide-react'
+import { Flame, Truck, Clock, Star, ChevronRight, MapPin, Phone, ArrowRight, Send, Store, Tag, MessageCircle, Heart } from 'lucide-react'
 
 export function HomePage() {
   const { navigate } = useNavigation()
   const { addItem } = useCart()
   const popularItems = menuItems.filter((i) => i.isPopular && i.isAvailable).slice(0, 4)
+
+  // Categories to skip for the homepage display
+  const skipCategoryIds = ['cat-3', 'cat-4', 'cat-22', 'cat-24'] // Denné menu, Polievka dňa, Dresingy, Nočný rozvoz
+  const mainCategories = categories.filter((c) => !skipCategoryIds.includes(c.id)).slice(0, 12)
 
   return (
     <div className="animate-float-up">
@@ -28,14 +32,14 @@ export function HomePage() {
           <div className="max-w-2xl">
             <Badge className="bg-dragon-red/20 text-dragon-red border-dragon-red/30 mb-4 text-xs font-medium">
               <Flame className="w-3 h-3 mr-1" />
-              NOVÉ V HLOHOVCI
+              STREET FOOD HLOHOVEC
             </Badge>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-4">
-              Ázijské street food.{' '}
-              <span className="text-dragon-red">Doručíme až k vám.</span>
+              Street-food klasiky z Hlohovca{' '}
+              <span className="text-dragon-red">priamo k tebe</span>
             </h1>
             <p className="text-lg text-white/70 mb-8 leading-relaxed max-w-lg">
-              Autentické chute Ázie v modernom prevedení. Čerstvé ingrediencie, rýchla príprava a doručenie až k vašim dverám v Hlohovci a okolí.
+              Burgre, kebab, pinsa, hot-dogy, boxy, wrapy, dezerty a rodinné combá. Objednaj si rýchlo cez náš vlastný systém – na rozvoz alebo osobný odber.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
@@ -52,7 +56,7 @@ export function HomePage() {
                 className="border-white/20 text-white hover:bg-white/10 px-8 py-6 text-base rounded-xl"
                 size="lg"
               >
-                Zobraziť menu
+                Pozrieť menu
               </Button>
             </div>
           </div>
@@ -65,9 +69,9 @@ export function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { icon: <Truck className="w-5 h-5 text-dragon-red" />, label: 'Doručenie', value: '25-45 min' },
-              { icon: <Clock className="w-5 h-5 text-dragon-orange" />, label: 'Otváracie hodiny', value: '10:00 - 22:00' },
+              { icon: <Clock className="w-5 h-5 text-dragon-orange" />, label: 'Otváracie hodiny', value: 'Ut-Ne (Po zatv.)' },
               { icon: <Star className="w-5 h-5 text-dragon-lime" />, label: 'Hodnotenie', value: '4.8 ★' },
-              { icon: <MapPin className="w-5 h-5 text-white" />, label: 'Lokalita', value: 'Hlohovec' },
+              { icon: <MapPin className="w-5 h-5 text-white" />, label: 'Lokalita', value: 'Hlohovec a okolie' },
             ].map((stat, i) => (
               <div key={i} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3">
                 {stat.icon}
@@ -88,10 +92,10 @@ export function HomePage() {
             <div>
               <Badge className="bg-dragon-red/10 text-dragon-red border-dragon-red/20 mb-2">
                 <Flame className="w-3 h-3 mr-1" />
-                OBĽUBENÉ
+                OBĽÚBENÉ
               </Badge>
               <h2 className="text-2xl sm:text-3xl font-bold text-dragon-dark">
-                Naše naj obľúbené jedlá
+                Naše najobľúbenejšie jedlá
               </h2>
               <p className="text-muted-foreground text-sm mt-1">
                 To, čo si naši zákazníci objednávajú najčastejšie
@@ -194,8 +198,8 @@ export function HomePage() {
             </h2>
             <p className="text-white/50 text-sm mt-2">Vyberte si z našich kategórií</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((cat) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {mainCategories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => navigate('menu')}
@@ -217,8 +221,41 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* Why Order Direct */}
       <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <Badge className="bg-dragon-red/10 text-dragon-red border-dragon-red/20 mb-2">
+              PREČO MY
+            </Badge>
+            <h2 className="text-2xl sm:text-3xl font-bold text-dragon-dark">
+              Prečo objednať <span className="text-dragon-red">priamo u nás</span>?
+            </h2>
+            <p className="text-muted-foreground text-sm mt-2 max-w-2xl mx-auto">
+              Keď objednávaš priamo cez Dragon, podporuješ lokálnu prevádzku a získavaš prístup k vlastným akciám, špeciálom a rýchlejšej komunikácii.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: <Store className="w-6 h-6 text-dragon-red" />, title: 'Priama objednávka', desc: 'Objednávka ide priamo do našej kuchyne – žiadni sprostredkovatelia' },
+              { icon: <Tag className="w-6 h-6 text-dragon-orange" />, title: 'Vlastné akcie', desc: 'Prístup k akciám dňa, týždenným špeciálom a promo kódom' },
+              { icon: <MessageCircle className="w-6 h-6 text-dragon-lime" />, title: 'Rýchlejší kontakt', desc: 'Zmena objednávky alebo otázka priamo u nás' },
+              { icon: <Heart className="w-6 h-6 text-pink-500" />, title: 'Podpora lokálnej prevádzky', desc: 'Podporuješ miestnu reštauráciu namiesto nadnárodných platforiem' },
+            ].map((card, i) => (
+              <div key={i} className="text-center p-6 rounded-2xl bg-white shadow-sm border border-border/50 hover:shadow-md transition-shadow">
+                <div className="flex justify-center mb-3 w-12 h-12 rounded-xl bg-dragon-red/10 items-center">
+                  {card.icon}
+                </div>
+                <h3 className="font-bold text-dragon-dark mb-2">{card.title}</h3>
+                <p className="text-muted-foreground text-xs leading-relaxed">{card.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-16 sm:py-20 bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-dragon-dark">
@@ -228,10 +265,10 @@ export function HomePage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { step: '01', title: 'Vyberte si jedlo', desc: 'Prechádzajte naším menu a pridajte obľúbené položky do košíka', icon: '🍽️' },
+              { step: '01', title: 'Vyberte si jedlo', desc: 'Prechádzajte naším menu a pridajte obľúbené položky do košíka', icon: '🍔' },
               { step: '02', title: 'Zvoľte doručenie', desc: 'Doručenie k vám domov alebo osobný odber v reštaurácii', icon: '🛵' },
               { step: '03', title: 'Zaplaťte', desc: 'Online kartou alebo hotovosťou pri doručení – vyberte si', icon: '💳' },
-              { step: '04', title: 'Užite si jedlo', desc: 'Sledujte stav objednávky v reálnom čase a užite si chuť Ázie', icon: '🎉' },
+              { step: '04', title: 'Užite si jedlo', desc: 'Sledujte stav objednávky v reálnom čase a užite si skvelé jedlo', icon: '🎉' },
             ].map((s) => (
               <div key={s.step} className="text-center p-6 rounded-2xl bg-white shadow-sm border border-border/50 hover:shadow-md transition-shadow">
                 <div className="text-4xl mb-3">{s.icon}</div>
@@ -266,6 +303,46 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Social Sharing Buttons */}
+      <section className="py-10 bg-dragon-dark/80">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <p className="text-white/60 text-sm mb-4">Zdieľajte nás so priateľmi!</p>
+          <div className="flex justify-center gap-4">
+            <Button
+              variant="outline"
+              className="border-white/20 text-white hover:bg-white/10 rounded-xl gap-2"
+              onClick={() => {
+                window.open(
+                  `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`,
+                  '_blank',
+                  'width=600,height=400'
+                )
+              }}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+              Zdieľať na Facebooku
+            </Button>
+            <Button
+              variant="outline"
+              className="border-white/20 text-white hover:bg-white/10 rounded-xl gap-2"
+              onClick={() => {
+                const text = 'Skvelé street food v Hlohovci! Burgre, kebab, pinsa a viac – objednaj online na Dragon Street Food!'
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(text + ' ' + window.location.href)
+                }
+              }}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+              </svg>
+              Zdieľať na Instagrame
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* About Section */}
       <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -275,13 +352,13 @@ export function HomePage() {
                 O NÁS
               </Badge>
               <h2 className="text-2xl sm:text-3xl font-bold text-dragon-dark mb-4">
-                Street food s <span className="text-dragon-red">dušou Ázie</span>
+                Street food s <span className="text-dragon-red">dušou</span>
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-4">
-                Dragon Street Food vznikol z vášne k ázijskej kuchyni a túžby priniesť autentické chute street foodu do Hlohovca. Naše jedlá pripravujeme z čerstvých surovín s rešpektom k tradičným receptúram.
+                Dragon Street Food vznikol z vášne k street foodu a túžby priniesť tie najlepšie chute do Hlohovca. Naše jedlá pripravujeme z čerstvých surovín s dôrazom na kvalitu a rýchlosť.
               </p>
               <p className="text-muted-foreground leading-relaxed mb-6">
-                Veríme, že dobré jedlo nemusí byť komplikované. Stačí čerstvosť, chuť a rýchlosť. Presne to, čo street food znamená.
+                Burgre, kebaby, pinsy, hot dogy, wrapy – všetko, čo máš rád, na jednom mieste. A ak nemáš čas zájsť k nám, radi vám doručíme až domov.
               </p>
               <div className="flex gap-6">
                 <div>
@@ -293,7 +370,7 @@ export function HomePage() {
                   <div className="text-xs text-muted-foreground">Hodnotenie</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-dragon-red">15+</div>
+                  <div className="text-2xl font-bold text-dragon-red">80+</div>
                   <div className="text-xs text-muted-foreground">Jedál v menu</div>
                 </div>
               </div>
@@ -301,12 +378,12 @@ export function HomePage() {
             <div className="relative">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4">
-                  <img src="/images/ramen.jpg" alt="Ramen" className="rounded-2xl shadow-lg w-full h-40 object-cover" />
-                  <img src="/images/spring-rolls.jpg" alt="Spring Rolls" className="rounded-2xl shadow-lg w-full h-52 object-cover" />
+                  <img src="/images/kebab.jpg" alt="Kebab" className="rounded-2xl shadow-lg w-full h-40 object-cover" />
+                  <img src="/images/hotdog.jpg" alt="Hot dog" className="rounded-2xl shadow-lg w-full h-52 object-cover" />
                 </div>
                 <div className="space-y-4 pt-8">
-                  <img src="/images/kung-pao.jpg" alt="Kung Pao" className="rounded-2xl shadow-lg w-full h-52 object-cover" />
-                  <img src="/images/dumplings.jpg" alt="Dumplings" className="rounded-2xl shadow-lg w-full h-40 object-cover" />
+                  <img src="/images/chicken-wings.jpg" alt="Kuracie krídla" className="rounded-2xl shadow-lg w-full h-52 object-cover" />
+                  <img src="/images/fries.jpg" alt="Hranolky" className="rounded-2xl shadow-lg w-full h-40 object-cover" />
                 </div>
               </div>
             </div>
@@ -329,7 +406,7 @@ export function HomePage() {
                   {openingHours.map((h, i) => (
                     <div key={i} className="flex justify-between items-center">
                       <span className="text-sm font-medium">{h.day}</span>
-                      <span className="text-sm text-muted-foreground">{h.hours}</span>
+                      <span className={`text-sm ${h.isClosed ? 'text-dragon-red font-medium' : 'text-muted-foreground'}`}>{h.hours}</span>
                     </div>
                   ))}
                 </div>

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigation, useCart } from '@/lib/store'
+import { deliveryZones } from '@/lib/data'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,10 +11,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useOrder } from '@/lib/store'
 import {
   ShoppingCart, Plus, Minus, Trash2, Truck, Store,
-  CreditCard, Banknote, ArrowRight, ArrowLeft, Tag, Check, X
+  CreditCard, Banknote, ArrowRight, ArrowLeft, Tag, Check, X, AlertTriangle
 } from 'lucide-react'
 
 export function CheckoutPage() {
@@ -21,6 +29,8 @@ export function CheckoutPage() {
     items,
     deliveryType,
     setDeliveryType,
+    selectedDeliveryZone,
+    setSelectedDeliveryZone,
     promoCode,
     promoDiscount,
     applyPromo,
@@ -28,8 +38,6 @@ export function CheckoutPage() {
     removeItem,
     updateQuantity,
     getSubtotal,
-    getDeliveryFee,
-    getTotal,
     clearCart,
   } = useCart()
   const { navigate } = useNavigation()
@@ -44,15 +52,31 @@ export function CheckoutPage() {
     city: 'Hlohovec',
     postalCode: '931 01',
     deliveryNotes: '',
+    kitchenNotes: '',
+    courierNotes: '',
     paymentMethod: 'CASH_ON_DELIVERY' as 'CASH_ON_DELIVERY' | 'CARD_ONLINE' | 'PICKUP_PAY',
   })
   const [promoInput, setPromoInput] = useState('')
   const [promoError, setPromoError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Delivery zone logic
+  const currentZone = deliveryZones[selectedDeliveryZone] || deliveryZones[0]
   const subtotal = getSubtotal()
-  const deliveryFee = getDeliveryFee()
-  const total = getTotal()
+
+  const deliveryFee = useMemo(() => {
+    if (deliveryType === 'PICKUP') return 0
+    if (currentZone.freeDeliveryThreshold > 0 && subtotal >= currentZone.freeDeliveryThreshold) return 0
+    return currentZone.fee
+  }, [deliveryType, currentZone, subtotal])
+
+  const hasAlcohol = items.some((item) => item.isAlcohol)
+
+  const minOrderNotMet = deliveryType === 'DELIVERY' && subtotal < currentZone.minOrder
+
+  const total = useMemo(() => {
+    return Math.max(0, subtotal + deliveryFee - promoDiscount)
+  }, [subtotal, deliveryFee, promoDiscount])
 
   const handleApplyPromo = () => {
     if (promoInput.toUpperCase() === 'DRAGON10') {
@@ -87,7 +111,7 @@ export function CheckoutPage() {
       id: `order-${Date.now()}`,
       orderNumber,
       status: 'CREATED',
-      estimatedDeliveryTime: deliveryType === 'DELIVERY' ? '30-45 min' : '15-20 min',
+      estimatedDeliveryTime: deliveryType === 'DELIVERY' ? currentZone.time : '15-20 min',
       items: items.map((i) => ({
         name: i.name,
         nameSk: i.nameSk,
@@ -128,6 +152,16 @@ export function CheckoutPage() {
         <h1 className="text-2xl font-bold text-dragon-dark">Košík & Objednávka</h1>
       </div>
 
+      {/* Alcohol Warning */}
+      {hasAlcohol && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800 font-medium">
+            ⚠️ Vaša objednávka obsahuje alkoholický nápoj. Doručenie len osobám starším ako 18 rokov.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Items + Form */}
         <div className="lg:col-span-2 space-y-6">
@@ -149,7 +183,10 @@ export function CheckoutPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h4 className="font-semibold text-sm text-dragon-dark">{item.nameSk}</h4>
+                          <h4 className="font-semibold text-sm text-dragon-dark">
+                            {item.nameSk}
+                            {item.isAlcohol && <span className="ml-1 text-xs text-gray-500">🍺</span>}
+                          </h4>
                           {item.addons.length > 0 && (
                             <p className="text-[10px] text-muted-foreground">
                               + {item.addons.map((a) => a.nameSk).join(', ')}
@@ -224,7 +261,7 @@ export function CheckoutPage() {
                       Doručenie
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      25-45 min • {deliveryFee === 0 ? 'ZADARMO' : `${deliveryFee.toFixed(2)}€`}
+                      {currentZone.time} • {deliveryFee === 0 && subtotal >= (currentZone.freeDeliveryThreshold || 0) && currentZone.freeDeliveryThreshold > 0 ? 'ZADARMO' : `${currentZone.fee.toFixed(2)}€`}
                     </p>
                   </div>
                 </label>
@@ -247,6 +284,41 @@ export function CheckoutPage() {
                   </div>
                 </label>
               </RadioGroup>
+
+              {/* Delivery Zone Selection */}
+              {deliveryType === 'DELIVERY' && (
+                <div className="mt-4">
+                  <Label className="text-sm font-medium">Zóna doručenia</Label>
+                  <Select
+                    value={String(selectedDeliveryZone)}
+                    onValueChange={(val) => setSelectedDeliveryZone(Number(val))}
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Vyberte zónu doručenia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deliveryZones.map((zone, idx) => (
+                        <SelectItem key={idx} value={String(idx)}>
+                          {zone.name} — {zone.fee.toFixed(2)}€ • min. {zone.minOrder.toFixed(2)}€ • {zone.time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Free delivery threshold message */}
+                  {currentZone.freeDeliveryThreshold > 0 && subtotal < currentZone.freeDeliveryThreshold && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Doručenie zadarmo pri objednávke nad {currentZone.freeDeliveryThreshold.toFixed(2)}€
+                      {' '}• Pridajte ešte za {(currentZone.freeDeliveryThreshold - subtotal).toFixed(2)}€
+                    </p>
+                  )}
+                  {currentZone.freeDeliveryThreshold > 0 && subtotal >= currentZone.freeDeliveryThreshold && (
+                    <p className="text-xs text-green-600 font-medium mt-2">
+                      ✓ Doručenie zadarmo! (objednávka nad {currentZone.freeDeliveryThreshold.toFixed(2)}€)
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -336,6 +408,34 @@ export function CheckoutPage() {
                     </div>
                   </div>
                 </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Kitchen & Courier Notes */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-5 space-y-4">
+              <div>
+                <Label className="text-sm font-semibold">Poznámka pre kuchyňu</Label>
+                <Textarea
+                  value={formData.kitchenNotes}
+                  onChange={(e) => setFormData({ ...formData, kitchenNotes: e.target.value })}
+                  placeholder="Napríklad: alergia na orechy, menej soli..."
+                  className="mt-1.5 text-sm"
+                  rows={2}
+                />
+              </div>
+              {deliveryType === 'DELIVERY' && (
+                <div>
+                  <Label className="text-sm font-semibold">Poznámka pre kuriéra</Label>
+                  <Textarea
+                    value={formData.courierNotes}
+                    onChange={(e) => setFormData({ ...formData, courierNotes: e.target.value })}
+                    placeholder="Napríklad: zavolajte 5 min pred príchodom..."
+                    className="mt-1.5 text-sm"
+                    rows={2}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
@@ -458,7 +558,9 @@ export function CheckoutPage() {
                 </div>
                 {deliveryType === 'DELIVERY' && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Doprava</span>
+                    <span className="text-muted-foreground">
+                      Doprava ({currentZone.name})
+                    </span>
                     <span className={deliveryFee === 0 ? 'text-green-600 font-medium' : ''}>
                       {deliveryFee === 0 ? 'ZADARMO' : `${deliveryFee.toFixed(2)}€`}
                     </span>
@@ -477,21 +579,21 @@ export function CheckoutPage() {
                 </div>
               </div>
 
-              {subtotal < 10 && deliveryType === 'DELIVERY' && (
+              {minOrderNotMet && (
                 <p className="text-xs text-amber-600 mt-3">
-                  Minimálna objednávka na doručenie je 10€
+                  Minimálna objednávka pre {currentZone.name} je {currentZone.minOrder.toFixed(2)}€
                 </p>
               )}
 
-              {deliveryType === 'DELIVERY' && subtotal < 30 && subtotal >= 10 && (
+              {deliveryType === 'DELIVERY' && currentZone.freeDeliveryThreshold > 0 && subtotal < currentZone.freeDeliveryThreshold && (
                 <p className="text-xs text-muted-foreground mt-3">
-                  Pridajte ešte za {(30 - subtotal).toFixed(2)}€ a doručenie budete mať zadarmo!
+                  Pridajte ešte za {(currentZone.freeDeliveryThreshold - subtotal).toFixed(2)}€ a doručenie budete mať zadarmo!
                 </p>
               )}
 
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || items.length === 0 || (deliveryType === 'DELIVERY' && subtotal < 10)}
+                disabled={isSubmitting || items.length === 0 || minOrderNotMet}
                 className="w-full mt-4 bg-dragon-red hover:bg-dragon-red-dark text-white py-5 text-sm font-semibold rounded-xl"
               >
                 {isSubmitting ? (

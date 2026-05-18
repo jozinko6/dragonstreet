@@ -12,8 +12,67 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { Search, Star, Flame, Leaf, Plus, Minus, ShoppingCart, ChevronRight, AlertTriangle } from 'lucide-react'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Search, Star, Flame, Leaf, Plus, Minus, ShoppingCart, AlertTriangle, Beer, Zap, Award, ClipboardList } from 'lucide-react'
 
+// ─── Badge helper ──────────────────────────────────────────────────────────────
+function ItemBadges({ item, size = 'sm' }: { item: (typeof menuItems)[0]; size?: 'sm' | 'xs' }) {
+  const textClass = size === 'xs' ? 'text-[9px]' : 'text-[10px]'
+  return (
+    <>
+      {item.isPopular && (
+        <Badge className="bg-dragon-red text-white border-0">
+          <Star className="w-3 h-3 mr-0.5" /> TOP
+        </Badge>
+      )}
+      {item.isSpicy && (
+        <Badge className="bg-orange-500 text-white border-0">
+          🌶 Pálivé
+        </Badge>
+      )}
+      {item.isNew && (
+        <Badge className="bg-dragon-lime text-dragon-dark border-0">
+          NOVINKA
+        </Badge>
+      )}
+      {item.isVegetarian && (
+        <Badge className="bg-green-500 text-white border-0">
+          🌿 Veg
+        </Badge>
+      )}
+      {item.isAlcohol && (
+        <Badge className="bg-gray-800 text-white border-0">
+          🍺 18+
+        </Badge>
+      )}
+      {item.isDailyDeal && (
+        <Badge className="bg-orange-500 text-white border-0">
+          🔥 AKCIA
+        </Badge>
+      )}
+      {item.isWeeklySpecial && (
+        <Badge className="bg-purple-600 text-white border-0">
+          ⭐ ŠPECIÁL
+        </Badge>
+      )}
+      {item.isDailyMenu && (
+        <Badge className="bg-blue-600 text-white border-0">
+          📋 MENU
+        </Badge>
+      )}
+    </>
+  )
+}
+
+// ─── Modifier group labels ─────────────────────────────────────────────────────
+const modifierGroupLabels: Record<string, string> = {
+  dressing: 'Výber dresingu',
+  side: 'Príloha',
+  spice_level: 'Pikantnosť',
+  drink: 'Nápoj k menu',
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
 export function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -22,7 +81,7 @@ export function MenuPage() {
   const { navigate } = useNavigation()
 
   const filteredItems = useMemo(() => {
-    let items = menuItems.filter((i) => i.isAvailable)
+    let items = menuItems
     if (selectedCategory) {
       items = items.filter((i) => i.categoryId === selectedCategory)
     }
@@ -51,7 +110,7 @@ export function MenuPage() {
             Naše <span className="text-dragon-red">menu</span>
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Vyberte si z našich ázijských špecialít
+            Vyberte si z našich street food špecialít
           </p>
         </div>
 
@@ -65,40 +124,48 @@ export function MenuPage() {
             className="pl-10 rounded-xl border-border/50"
           />
         </div>
+      </div>
 
-        {/* Category Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-6 no-scrollbar">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              !selectedCategory
-                ? 'bg-dragon-red text-white'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            Všetko
-          </button>
-          {categories.map((cat) => (
+      {/* Sticky Category Tabs */}
+      <div className="sticky top-16 sm:top-18 z-30 bg-background border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex gap-2 overflow-x-auto py-3 no-scrollbar">
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
+              onClick={() => setSelectedCategory(null)}
               className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                selectedCategory === cat.id
+                !selectedCategory
                   ? 'bg-dragon-red text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             >
-              {cat.nameSk}
+              Všetko
             </button>
-          ))}
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  selectedCategory === cat.id
+                    ? 'bg-dragon-red text-white'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {cat.nameSk}
+              </button>
+            ))}
+          </div>
         </div>
+      </div>
 
-        {/* Menu Grid */}
+      {/* Menu Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredItems.map((item) => (
             <Card
               key={item.id}
-              className="food-card-hover overflow-hidden border-0 shadow-md cursor-pointer group"
+              className={`food-card-hover overflow-hidden border-0 shadow-md cursor-pointer group ${
+                !item.isAvailable ? 'opacity-60' : ''
+              }`}
               onClick={() => setSelectedItem(item.id)}
             >
               <div className="relative h-44 overflow-hidden">
@@ -109,28 +176,19 @@ export function MenuPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                 <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                  {item.isPopular && (
-                    <Badge className="bg-dragon-red text-white text-[10px] border-0">
-                      <Star className="w-3 h-3 mr-0.5" /> TOP
-                    </Badge>
-                  )}
-                  {item.isSpicy && (
-                    <Badge className="bg-orange-500 text-white text-[10px] border-0">
-                      🌶 Pálivé
-                    </Badge>
-                  )}
-                  {item.isNew && (
-                    <Badge className="bg-dragon-lime text-dragon-dark text-[10px] border-0">
-                      NOVINKA
-                    </Badge>
-                  )}
-                  {item.isVegetarian && (
-                    <Badge className="bg-green-500 text-white text-[10px] border-0">
-                      🌿 Veg
+                  <ItemBadges item={item} />
+                  {!item.isAvailable && (
+                    <Badge className="bg-gray-900/90 text-white border-0 text-xs font-bold">
+                      Vypredané
                     </Badge>
                   )}
                 </div>
-                <div className="absolute bottom-3 right-3">
+                <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                  {item.weight && (
+                    <span className="bg-white/70 backdrop-blur-sm text-dragon-dark text-xs font-medium px-2 py-0.5 rounded-md">
+                      {item.weight}
+                    </span>
+                  )}
                   <span className="bg-white/90 backdrop-blur-sm text-dragon-dark font-bold text-lg px-3 py-1 rounded-lg">
                     {item.price.toFixed(2)}€
                   </span>
@@ -153,8 +211,10 @@ export function MenuPage() {
                   <Button
                     className="bg-dragon-red hover:bg-dragon-red-dark text-white text-xs rounded-lg ml-auto"
                     size="sm"
+                    disabled={!item.isAvailable}
                     onClick={(e) => {
                       e.stopPropagation()
+                      if (!item.isAvailable) return
                       addItem({
                         id: `cart-${Date.now()}-${item.id}`,
                         menuItemId: item.id,
@@ -167,6 +227,7 @@ export function MenuPage() {
                         notes: '',
                         isSpicy: item.isSpicy,
                         isVegetarian: item.isVegetarian,
+                        isAlcohol: item.isAlcohol,
                       })
                     }}
                   >
@@ -188,7 +249,7 @@ export function MenuPage() {
 
       {/* Item Detail Dialog */}
       <Dialog open={!!selectedItemData} onOpenChange={() => setSelectedItem(null)}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <DialogContent className="max-w-lg p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
           {selectedItemData && (
             <ItemDetail
               item={selectedItemData}
@@ -201,6 +262,7 @@ export function MenuPage() {
   )
 }
 
+// ─── Item Detail Dialog Content ────────────────────────────────────────────────
 function ItemDetail({
   item,
   onClose,
@@ -212,14 +274,60 @@ function ItemDetail({
   const { navigate } = useNavigation()
   const [quantity, setQuantity] = useState(1)
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState('')
 
-  const addonsTotal = item.addons
-    .filter((a) => selectedAddons.includes(a.id))
-    .reduce((sum, a) => sum + a.price, 0)
+  // Group addons by modifierGroup
+  const groupedAddons = useMemo(() => {
+    const groups: { group: string | null; label: string; addons: (typeof item.addons)[] }[] = []
+    const groupMap = new Map<string | null, (typeof item.addons)>()
+
+    for (const addon of item.addons) {
+      const key = addon.isModifier && addon.modifierGroup ? addon.modifierGroup : null
+      if (!groupMap.has(key)) {
+        groupMap.set(key, [])
+      }
+      groupMap.get(key)!.push(addon)
+    }
+
+    // Add modifier groups first (in order)
+    const modifierOrder = ['dressing', 'side', 'spice_level', 'drink']
+    for (const mg of modifierOrder) {
+      const addons = groupMap.get(mg)
+      if (addons) {
+        groups.push({
+          group: mg,
+          label: modifierGroupLabels[mg] || mg,
+          addons,
+        })
+      }
+    }
+
+    // Then add the "no group" addons (extras)
+    const noGroupAddons = groupMap.get(null)
+    if (noGroupAddons && noGroupAddons.length > 0) {
+      groups.push({
+        group: null,
+        label: 'Prídavky',
+        addons: noGroupAddons,
+      })
+    }
+
+    return groups
+  }, [item.addons])
+
+  const addonsTotal =
+    item.addons
+      .filter((a) => selectedAddons.includes(a.id))
+      .reduce((sum, a) => sum + a.price, 0) +
+    item.addons
+      .filter((a) => Object.values(selectedModifiers).includes(a.id))
+      .reduce((sum, a) => sum + a.price, 0)
   const itemTotal = (item.price + addonsTotal) * quantity
 
   const handleAdd = () => {
+    if (!item.isAvailable) return
+    const allSelectedAddonIds = [...selectedAddons, ...Object.values(selectedModifiers)]
     addItem({
       id: `cart-${Date.now()}-${item.id}`,
       menuItemId: item.id,
@@ -228,10 +336,11 @@ function ItemDetail({
       price: item.price,
       quantity,
       image: item.image,
-      addons: item.addons.filter((a) => selectedAddons.includes(a.id)),
+      addons: item.addons.filter((a) => allSelectedAddonIds.includes(a.id)),
       notes,
       isSpicy: item.isSpicy,
       isVegetarian: item.isVegetarian,
+      isAlcohol: item.isAlcohol,
     })
     onClose()
   }
@@ -244,6 +353,17 @@ function ItemDetail({
     )
   }
 
+  const selectModifier = (group: string, addonId: string) => {
+    setSelectedModifiers((prev) => {
+      if (prev[group] === addonId) {
+        const next = { ...prev }
+        delete next[group]
+        return next
+      }
+      return { ...prev, [group]: addonId }
+    })
+  }
+
   return (
     <>
       <div className="relative h-56 overflow-hidden">
@@ -253,25 +373,11 @@ function ItemDetail({
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute top-3 left-3 flex gap-1.5">
-          {item.isPopular && (
-            <Badge className="bg-dragon-red text-white text-[10px] border-0">
-              <Star className="w-3 h-3 mr-0.5" /> TOP
-            </Badge>
-          )}
-          {item.isSpicy && (
-            <Badge className="bg-orange-500 text-white text-[10px] border-0">
-              🌶 Pálivé
-            </Badge>
-          )}
-          {item.isNew && (
-            <Badge className="bg-dragon-lime text-dragon-dark text-[10px] border-0">
-              NOVINKA
-            </Badge>
-          )}
-          {item.isVegetarian && (
-            <Badge className="bg-green-500 text-white text-[10px] border-0">
-              🌿 Vegetariánske
+        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+          <ItemBadges item={item} />
+          {!item.isAvailable && (
+            <Badge className="bg-gray-900/90 text-white border-0 text-xs font-bold">
+              Vypredané
             </Badge>
           )}
         </div>
@@ -281,8 +387,15 @@ function ItemDetail({
           {item.nameSk}
         </DialogTitle>
         <p className="text-sm text-muted-foreground mt-1">{item.descriptionSk}</p>
-        <div className="text-2xl font-bold text-dragon-red mt-3">
-          {item.price.toFixed(2)}€
+        <div className="flex items-center gap-3 mt-3">
+          <span className="text-2xl font-bold text-dragon-red">
+            {item.price.toFixed(2)}€
+          </span>
+          {item.weight && (
+            <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+              {item.weight}
+            </span>
+          )}
         </div>
 
         {/* Allergens */}
@@ -298,37 +411,85 @@ function ItemDetail({
           </div>
         )}
 
-        {/* Addons */}
-        {item.addons.length > 0 && (
-          <div className="mt-4">
-            <h4 className="text-sm font-semibold text-dragon-dark mb-2">
-              Prídavky
-            </h4>
-            <div className="space-y-2">
-              {item.addons.map((addon) => (
-                <label
-                  key={addon.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                    selectedAddons.includes(addon.id)
-                      ? 'border-dragon-red bg-dragon-red/5'
-                      : 'border-border hover:border-dragon-red/30'
-                  }`}
-                >
-                  <Checkbox
-                    checked={selectedAddons.includes(addon.id)}
-                    onCheckedChange={() => toggleAddon(addon.id)}
-                  />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium">{addon.nameSk}</span>
-                  </div>
-                  {addon.price > 0 && (
-                    <span className="text-sm text-dragon-red font-medium">
-                      +{addon.price.toFixed(2)}€
+        {/* Grouped Addons / Modifiers */}
+        {groupedAddons.length > 0 && (
+          <div className="mt-4 space-y-4">
+            {groupedAddons.map(({ group, label, addons }) => (
+              <div key={group ?? 'extras'}>
+                <h4 className="text-sm font-semibold text-dragon-dark mb-2">
+                  {label}
+                  {group && (
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      (vyberte 1)
                     </span>
                   )}
-                </label>
-              ))}
-            </div>
+                  {!group && (
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      (vyberte ľubovoľný počet)
+                    </span>
+                  )}
+                </h4>
+
+                {group ? (
+                  // Radio group for modifiers
+                  <RadioGroup
+                    value={selectedModifiers[group] || ''}
+                    onValueChange={(val) => selectModifier(group, val)}
+                    className="space-y-2"
+                  >
+                    {addons.map((addon) => (
+                      <label
+                        key={addon.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                          selectedModifiers[group] === addon.id
+                            ? 'border-dragon-red bg-dragon-red/5'
+                            : 'border-border hover:border-dragon-red/30'
+                        }`}
+                      >
+                        <RadioGroupItem value={addon.id} id={addon.id} />
+                        <div className="flex-1">
+                          <Label htmlFor={addon.id} className="text-sm font-medium cursor-pointer">
+                            {addon.nameSk}
+                          </Label>
+                        </div>
+                        {addon.price > 0 && (
+                          <span className="text-sm text-dragon-red font-medium">
+                            +{addon.price.toFixed(2)}€
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                  </RadioGroup>
+                ) : (
+                  // Checkbox group for extras
+                  <div className="space-y-2">
+                    {addons.map((addon) => (
+                      <label
+                        key={addon.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                          selectedAddons.includes(addon.id)
+                            ? 'border-dragon-red bg-dragon-red/5'
+                            : 'border-border hover:border-dragon-red/30'
+                        }`}
+                      >
+                        <Checkbox
+                          checked={selectedAddons.includes(addon.id)}
+                          onCheckedChange={() => toggleAddon(addon.id)}
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{addon.nameSk}</span>
+                        </div>
+                        {addon.price > 0 && (
+                          <span className="text-sm text-dragon-red font-medium">
+                            +{addon.price.toFixed(2)}€
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -336,7 +497,7 @@ function ItemDetail({
         <div className="mt-4">
           <Label className="text-sm font-semibold">Poznámka k jedlu</Label>
           <Textarea
-            placeholder="Napríklad: bez arašidov, extra omáčka..."
+            placeholder="Napríklad: bez cibule, extra omáčka..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             className="mt-1.5 text-sm"
@@ -369,10 +530,17 @@ function ItemDetail({
           </div>
           <Button
             onClick={handleAdd}
-            className="flex-1 bg-dragon-red hover:bg-dragon-red-dark text-white py-5 text-sm font-semibold rounded-xl"
+            disabled={!item.isAvailable}
+            className="flex-1 bg-dragon-red hover:bg-dragon-red-dark text-white py-5 text-sm font-semibold rounded-xl disabled:opacity-50"
           >
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            Pridať za {itemTotal.toFixed(2)}€
+            {!item.isAvailable ? (
+              'Vypredané'
+            ) : (
+              <>
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Pridať za {itemTotal.toFixed(2)}€
+              </>
+            )}
           </Button>
         </div>
       </div>
