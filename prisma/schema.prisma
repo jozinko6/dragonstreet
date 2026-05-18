@@ -3,29 +3,29 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // ─── Restaurant Settings ───────────────────────────────────────────────────────
 
 model RestaurantSettings {
-  id                   String   @id @default(cuid())
-  name                 String   @default("Dragon Street Food Hlohovec")
-  address              String   @default("")
-  phone                String   @default("")
-  email                String   @default("")
-  openingHours         String   @default("{}") // JSON string for opening hours
-  minOrderAmount       Float    @default(0)
-  deliveryFee          Float    @default(0)
-  freeDeliveryThreshold Float   @default(0)
-  isActive             Boolean  @default(true)
-  acceptOnlineOrders   Boolean  @default(true)
-  nightDeliveryEnabled Boolean  @default(false)
-  nightDeliveryFrom    String?
-  nightDeliveryTo      String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  name                  String   @default("Dragon Street Food Hlohovec")
+  address               String   @default("")
+  phone                 String   @default("")
+  email                 String   @default("")
+  openingHours          String   @default("{}") // JSON string for opening hours
+  minOrderAmount        Float    @default(0)
+  deliveryFee           Float    @default(0)
+  freeDeliveryThreshold Float    @default(0)
+  isActive              Boolean  @default(true)
+  acceptOnlineOrders    Boolean  @default(true)
+  nightDeliveryEnabled  Boolean  @default(false)
+  nightDeliveryFrom     String?
+  nightDeliveryTo       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
@@ -49,36 +49,36 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id             String       @id @default(cuid())
-  categoryId     String
-  name           String
-  nameSk         String       @default("")
-  description    String       @default("")
-  descriptionSk  String       @default("")
-  price          Float
-  image          String       @default("")
-  isPopular      Boolean      @default(false)
-  isSpicy        Boolean      @default(false)
-  isNew          Boolean      @default(false)
-  isVegetarian   Boolean      @default(false)
-  isAvailable    Boolean      @default(true)
-  allergens      String       @default("") // Comma-separated allergen codes
-  weight         String?      // gramáž, e.g. "300g"
-  isAlcohol      Boolean      @default(false) // 18+ marking
-  isDailyMenu    Boolean      @default(false)
-  isWeeklySpecial Boolean     @default(false)
-  isDailyDeal    Boolean      @default(false)
-  availableFrom  String?      // time like "11:30"
-  availableTo    String?      // time like "22:00"
-  deliveryOnly   Boolean      @default(false)
-  pickupOnly     Boolean      @default(false)
-  channel        String       @default("all") // all, wolt, bistro, direct
-  sortOrder      Int          @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  category       MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  addons         ItemAddon[]
-  orderItems     OrderItem[]
+  id              String       @id @default(cuid())
+  categoryId      String
+  name            String
+  nameSk          String       @default("")
+  description     String       @default("")
+  descriptionSk   String       @default("")
+  price           Float
+  image           String       @default("")
+  isPopular       Boolean      @default(false)
+  isSpicy         Boolean      @default(false)
+  isNew           Boolean      @default(false)
+  isVegetarian    Boolean      @default(false)
+  isAvailable     Boolean      @default(true)
+  allergens       String       @default("") // Comma-separated allergen codes
+  weight          String? // gramáž, e.g. "300g"
+  isAlcohol       Boolean      @default(false) // 18+ marking
+  isDailyMenu     Boolean      @default(false)
+  isWeeklySpecial Boolean      @default(false)
+  isDailyDeal     Boolean      @default(false)
+  availableFrom   String? // time like "11:30"
+  availableTo     String? // time like "22:00"
+  deliveryOnly    Boolean      @default(false)
+  pickupOnly      Boolean      @default(false)
+  channel         String       @default("all") // all, wolt, bistro, direct
+  sortOrder       Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  category        MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  addons          ItemAddon[]
+  orderItems      OrderItem[]
 
   @@index([categoryId])
   @@index([isAvailable])
@@ -87,17 +87,17 @@ model MenuItem {
 }
 
 model ItemAddon {
-  id            String    @id @default(cuid())
-  menuItemId    String
-  name          String
-  nameSk        String    @default("")
-  price         Float     @default(0)
-  isAvailable   Boolean   @default(true)
-  isModifier    Boolean   @default(false) // distinguishes add-ons from required modifiers
-  modifierGroup String?   // e.g. "dressing", "side", "spice_level"
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  menuItem      MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  menuItemId      String
+  name            String
+  nameSk          String           @default("")
+  price           Float            @default(0)
+  isAvailable     Boolean          @default(true)
+  isModifier      Boolean          @default(false) // distinguishes add-ons from required modifiers
+  modifierGroup   String? // e.g. "dressing", "side", "spice_level"
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  menuItem        MenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   orderItemAddons OrderItemAddon[]
 
   @@index([menuItemId])
@@ -115,7 +115,7 @@ model Customer {
   passwordHash  String    @default("")
   loyaltyPoints Int       @default(0)
   referralCode  String    @unique @default("")
-  referredBy    String?   // referral code of the referring customer
+  referredBy    String? // referral code of the referring customer
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   addresses     Address[]
@@ -127,16 +127,16 @@ model Customer {
 }
 
 model Address {
-  id          String    @id @default(cuid())
-  customerId  String
-  street      String
-  city        String    @default("Hlohovec")
-  postalCode  String    @default("")
-  notes       String    @default("")
-  isDefault   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  customerId String
+  street     String
+  city       String   @default("Hlohovec")
+  postalCode String   @default("")
+  notes      String   @default("")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
 }
@@ -181,35 +181,35 @@ enum PaymentStatus {
 }
 
 model Order {
-  id                    String       @id @default(cuid())
-  orderNumber           String       @unique
+  id                    String               @id @default(cuid())
+  orderNumber           String               @unique
   customerId            String?
-  guestEmail            String       @default("")
-  guestPhone            String       @default("")
-  guestFirstName        String       @default("")
-  guestLastName         String       @default("")
-  deliveryType          DeliveryType @default(DELIVERY)
-  status                OrderStatus  @default(CREATED)
-  deliveryAddress       String       @default("")
-  deliveryCity          String       @default("")
-  deliveryPostalCode    String       @default("")
-  deliveryNotes         String       @default("")
-  pickupTime            String       @default("")
-  subtotal              Float        @default(0)
-  deliveryFee           Float        @default(0)
-  discount              Float        @default(0)
-  totalAmount           Float        @default(0)
-  paymentMethod         PaymentMethod @default(CASH_ON_DELIVERY)
-  paymentStatus         PaymentStatus @default(PENDING)
-  promoCode             String       @default("")
+  guestEmail            String               @default("")
+  guestPhone            String               @default("")
+  guestFirstName        String               @default("")
+  guestLastName         String               @default("")
+  deliveryType          DeliveryType         @default(DELIVERY)
+  status                OrderStatus          @default(CREATED)
+  deliveryAddress       String               @default("")
+  deliveryCity          String               @default("")
+  deliveryPostalCode    String               @default("")
+  deliveryNotes         String               @default("")
+  pickupTime            String               @default("")
+  subtotal              Float                @default(0)
+  deliveryFee           Float                @default(0)
+  discount              Float                @default(0)
+  totalAmount           Float                @default(0)
+  paymentMethod         PaymentMethod        @default(CASH_ON_DELIVERY)
+  paymentStatus         PaymentStatus        @default(PENDING)
+  promoCode             String               @default("")
   courierId             String?
-  estimatedDeliveryTime String       @default("")
-  actualDeliveryTime    String       @default("")
-  notes                 String       @default("")
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-  customer              Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  courier               Courier?     @relation(fields: [courierId], references: [id], onDelete: SetNull)
+  estimatedDeliveryTime String               @default("")
+  actualDeliveryTime    String               @default("")
+  notes                 String               @default("")
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  customer              Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  courier               Courier?             @relation(fields: [courierId], references: [id], onDelete: SetNull)
   items                 OrderItem[]
   statusHistory         OrderStatusHistory[]
   review                Review?
@@ -223,34 +223,34 @@ model Order {
 }
 
 model OrderItem {
-  id              String    @id @default(cuid())
-  orderId         String
-  menuItemId      String?
-  menuItemName    String
-  menuItemNameSk  String    @default("")
-  quantity        Int       @default(1)
-  unitPrice       Float
-  addonsPrice     Float     @default(0)
-  totalPrice      Float
-  notes           String    @default("")
-  createdAt       DateTime  @default(now())
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem        MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
-  selectedAddons  OrderItemAddon[]
+  id             String           @id @default(cuid())
+  orderId        String
+  menuItemId     String?
+  menuItemName   String
+  menuItemNameSk String           @default("")
+  quantity       Int              @default(1)
+  unitPrice      Float
+  addonsPrice    Float            @default(0)
+  totalPrice     Float
+  notes          String           @default("")
+  createdAt      DateTime         @default(now())
+  order          Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem       MenuItem?        @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  selectedAddons OrderItemAddon[]
 
   @@index([orderId])
   @@index([menuItemId])
 }
 
 model OrderItemAddon {
-  id            String      @id @default(cuid())
-  orderItemId   String
-  addonId       String?
-  addonName     String
-  addonNameSk   String      @default("")
-  price         Float       @default(0)
-  orderItem     OrderItem   @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  addon         ItemAddon?  @relation(fields: [addonId], references: [id], onDelete: SetNull)
+  id          String     @id @default(cuid())
+  orderItemId String
+  addonId     String?
+  addonName   String
+  addonNameSk String     @default("")
+  price       Float      @default(0)
+  orderItem   OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addon       ItemAddon? @relation(fields: [addonId], references: [id], onDelete: SetNull)
 
   @@index([orderItemId])
   @@index([addonId])
@@ -272,18 +272,18 @@ model OrderStatusHistory {
 // ─── Courier ───────────────────────────────────────────────────────────────────
 
 model Courier {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   firstName   String
   lastName    String
   phone       String
-  email       String    @default("")
-  isAvailable Boolean   @default(true)
-  isOnline    Boolean   @default(false)
-  vehicleType String    @default("bicycle") // bicycle, motorcycle, car
-  currentLat  Float     @default(0)
-  currentLng  Float     @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  email       String   @default("")
+  isAvailable Boolean  @default(true)
+  isOnline    Boolean  @default(false)
+  vehicleType String   @default("bicycle") // bicycle, motorcycle, car
+  currentLat  Float    @default(0)
+  currentLng  Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   orders      Order[]
 
   @@index([isAvailable])
@@ -293,16 +293,16 @@ model Courier {
 // ─── Delivery Zone ─────────────────────────────────────────────────────────────
 
 model DeliveryZone {
-  id             String   @id @default(cuid())
-  name           String
-  postalCodes    String   // Comma-separated postal codes
-  deliveryFee    Float    @default(0)
-  minOrderAmount Float    @default(0)
-  freeDeliveryThreshold Float @default(0)
-  estimatedTime  String   @default("") // e.g., "30-45 min"
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  name                  String
+  postalCodes           String // Comma-separated postal codes
+  deliveryFee           Float    @default(0)
+  minOrderAmount        Float    @default(0)
+  freeDeliveryThreshold Float    @default(0)
+  estimatedTime         String   @default("") // e.g., "30-45 min"
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@index([isActive])
 }
@@ -337,16 +337,16 @@ model PromoCode {
 // ─── Marketing Post ────────────────────────────────────────────────────────────
 
 model MarketingPost {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   title      String
-  category   String    // facebook, instagram, story
+  category   String // facebook, instagram, story
   content    String
-  hashtags   String    @default("")
-  imageUrl   String    @default("")
+  hashtags   String   @default("")
+  imageUrl   String   @default("")
   menuItemId String?
   promoId    String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([category])
   @@index([createdAt])
@@ -355,14 +355,14 @@ model MarketingPost {
 // ─── Opening Hours ─────────────────────────────────────────────────────────────
 
 model OpeningHours {
-  id          String   @id @default(cuid())
-  dayOfWeek   Int      // 0=Po, 1=Ut, 2=St, 3=Št, 4=Pi, 5=So, 6=Ne
-  openTime    String
-  closeTime   String
-  isClosed    Boolean  @default(false)
-  isDelivery  Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  dayOfWeek  Int // 0=Po, 1=Ut, 2=St, 3=Št, 4=Pi, 5=So, 6=Ne
+  openTime   String
+  closeTime  String
+  isClosed   Boolean  @default(false)
+  isDelivery Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([dayOfWeek])
 }
@@ -370,14 +370,14 @@ model OpeningHours {
 // ─── Reviews ───────────────────────────────────────────────────────────────────
 
 model Review {
-  id         String    @id @default(cuid())
-  orderId    String    @unique
+  id         String   @id @default(cuid())
+  orderId    String   @unique
   customerId String
-  rating     Int       // 1-5
-  comment    String    @default("")
-  createdAt  DateTime  @default(now())
-  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rating     Int // 1-5
+  comment    String   @default("")
+  createdAt  DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([customerId])
