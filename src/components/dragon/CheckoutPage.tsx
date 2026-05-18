@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigation, useCart } from '@/lib/store'
 import { deliveryZones } from '@/lib/data'
 import { Button } from '@/components/ui/button'
@@ -60,6 +60,10 @@ export function CheckoutPage() {
   const [promoError, setPromoError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [availability, setAvailability] = useState({
+    delivery: { isOpen: true, message: '' },
+    pickup: { isOpen: true, message: '' },
+  })
 
   // Delivery zone logic
   const currentZone = deliveryZones[selectedDeliveryZone] || deliveryZones[0]
@@ -74,10 +78,27 @@ export function CheckoutPage() {
   const hasAlcohol = items.some((item) => item.isAlcohol)
 
   const minOrderNotMet = deliveryType === 'DELIVERY' && subtotal < currentZone.minOrder
+  const currentAvailability = deliveryType === 'DELIVERY' ? availability.delivery : availability.pickup
 
   const total = useMemo(() => {
     return Math.max(0, subtotal + deliveryFee - promoDiscount)
   }, [subtotal, deliveryFee, promoDiscount])
+
+  useEffect(() => {
+    async function loadAvailability() {
+      try {
+        const response = await fetch('/api/settings', { cache: 'no-store' })
+        const json = await response.json()
+        if (response.ok && json.success && json.data.orderAvailability) {
+          setAvailability(json.data.orderAvailability)
+        }
+      } catch {
+        // Server-side order validation is the source of truth if this check fails.
+      }
+    }
+
+    loadAvailability()
+  }, [])
 
   const handleApplyPromo = () => {
     if (promoInput.toUpperCase() === 'DRAGON10') {
@@ -101,6 +122,10 @@ export function CheckoutPage() {
     }
     if (deliveryType === 'DELIVERY' && (!formData.street || !formData.city)) {
       setSubmitError('Vyplnte adresu dorucenia.')
+      return
+    }
+    if (!currentAvailability.isOpen) {
+      setSubmitError(currentAvailability.message || 'Objednavky su momentalne vypnute.')
       return
     }
 
@@ -621,6 +646,13 @@ export function CheckoutPage() {
                 </p>
               )}
 
+              {!currentAvailability.isOpen && (
+                <p className="text-xs text-destructive mt-3 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  {currentAvailability.message || 'Objednavky su momentalne vypnute.'}
+                </p>
+              )}
+
               {deliveryType === 'DELIVERY' && currentZone.freeDeliveryThreshold > 0 && subtotal < currentZone.freeDeliveryThreshold && (
                 <p className="text-xs text-muted-foreground mt-3">
                   Pridajte ešte za {(currentZone.freeDeliveryThreshold - subtotal).toFixed(2)}€ a doručenie budete mať zadarmo!
@@ -633,7 +665,7 @@ export function CheckoutPage() {
 
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || items.length === 0 || minOrderNotMet}
+                disabled={isSubmitting || items.length === 0 || minOrderNotMet || !currentAvailability.isOpen}
                 className="w-full mt-4 bg-dragon-red hover:bg-dragon-red-dark text-white py-5 text-sm font-semibold rounded-xl"
               >
                 {isSubmitting ? (

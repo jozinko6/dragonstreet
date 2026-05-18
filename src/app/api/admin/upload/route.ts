@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaffAuth } from '@/lib/staff-auth'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -12,6 +13,9 @@ function getExtension(file: File) {
 
 export async function POST(request: NextRequest) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin'])
+    if (unauthorized) return unauthorized
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'menu-images'

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireStaffAuth } from '@/lib/staff-auth'
 
 function normalizeMenuItem(body: Record<string, unknown>) {
   return {
@@ -26,8 +27,11 @@ function normalizeMenuItem(body: Record<string, unknown>) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin'])
+    if (unauthorized) return unauthorized
+
     const categories = await db.menuCategory.findMany({
       orderBy: { sortOrder: 'asc' },
       include: {
@@ -70,6 +74,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin'])
+    if (unauthorized) return unauthorized
+
     const body = await request.json()
     const data = normalizeMenuItem(body)
 

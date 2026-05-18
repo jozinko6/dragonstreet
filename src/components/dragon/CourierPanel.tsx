@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { statusLabels } from '@/lib/data'
 import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
+import { StaffGate } from '@/components/dragon/StaffGate'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -179,6 +180,7 @@ export function CourierPanel() {
   }
 
   return (
+    <StaffGate role="courier" title="Kuriersky panel">
     <div className="animate-float-up">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
         {/* Header */}
@@ -493,5 +495,6 @@ export function CourierPanel() {
         )}
       </div>
     </div>
+    </StaffGate>
   )
 }

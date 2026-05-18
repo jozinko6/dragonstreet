@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getOrderAvailability } from '@/lib/opening-hours'
+import { requireStaffAuth } from '@/lib/staff-auth'
 import { OrderStatus, DeliveryType, PaymentMethod, PaymentStatus } from '@prisma/client'
 
 type OrderItemCreateData = {
@@ -42,6 +44,9 @@ async function generateOrderNumber(): Promise<string> {
 // GET /api/orders - List orders (admin, with filtering)
 export async function GET(request: NextRequest) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin', 'kitchen', 'courier'])
+    if (unauthorized) return unauthorized
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const limit = parseInt(searchParams.get('limit') || '50', 10)
@@ -144,6 +149,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Invalid delivery type' },
         { status: 400 }
+      )
+    }
+
+    const availability = await getOrderAvailability(deliveryType)
+    if (!availability.isOpen) {
+      return NextResponse.json(
+        { success: false, error: availability.message },
+        { status: 409 }
       )
     }
 

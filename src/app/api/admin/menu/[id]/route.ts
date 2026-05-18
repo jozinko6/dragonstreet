@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireStaffAuth } from '@/lib/staff-auth'
 
 function normalizePatch(body: Record<string, unknown>) {
   const data: Record<string, unknown> = {}
@@ -46,6 +47,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin'])
+    if (unauthorized) return unauthorized
+
     const { id } = await params
     const body = await request.json()
     const data = normalizePatch(body)
@@ -78,6 +82,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin'])
+    if (unauthorized) return unauthorized
+
     const { id } = await params
     await db.menuItem.delete({ where: { id } })
     return NextResponse.json({ success: true })

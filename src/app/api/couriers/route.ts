@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireStaffAuth } from '@/lib/staff-auth'
 
 // GET /api/couriers - List all couriers with their status
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin', 'courier'])
+    if (unauthorized) return unauthorized
+
     const couriers = await db.courier.findMany({
       orderBy: { createdAt: 'asc' },
       include: {
@@ -38,6 +42,9 @@ export async function GET() {
 // PATCH /api/couriers - Update courier availability
 export async function PATCH(request: NextRequest) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin', 'courier'])
+    if (unauthorized) return unauthorized
+
     const body = await request.json()
     const { id, isAvailable, isOnline } = body
 

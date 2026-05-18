@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { statusLabels } from '@/lib/data'
 import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
+import { StaffGate } from '@/components/dragon/StaffGate'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -71,6 +72,7 @@ export function KitchenPanel() {
   }
 
   return (
+    <StaffGate role="kitchen" title="Kuchynsky panel">
     <div className="animate-float-up">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-6">
@@ -227,5 +229,6 @@ export function KitchenPanel() {
         </Tabs>
       </div>
     </div>
+    </StaffGate>
   )
 }

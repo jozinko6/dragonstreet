@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { findLeastBusyCourierId } from '@/lib/courier-assignment'
+import { requireStaffAuth } from '@/lib/staff-auth'
 import { OrderStatus } from '@prisma/client'
 
 // Valid status transitions
@@ -29,6 +30,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin', 'kitchen', 'courier'])
+    if (unauthorized) return unauthorized
+
     const { id } = await params
 
     const order = await db.order.findUnique({

@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getOrderAvailability } from '@/lib/opening-hours'
 
 // GET /api/settings - Return restaurant settings
 export async function GET() {
   try {
-    const [settings, deliveryZones] = await Promise.all([
+    const [settings, deliveryZones, openingHoursRows, deliveryAvailability, pickupAvailability] = await Promise.all([
       db.restaurantSettings.findFirst(),
       db.deliveryZone.findMany({
         where: { isActive: true },
         orderBy: { createdAt: 'asc' },
       }),
+      db.openingHours.findMany({
+        orderBy: { dayOfWeek: 'asc' },
+      }),
+      getOrderAvailability('DELIVERY'),
+      getOrderAvailability('PICKUP'),
     ])
 
     if (!settings) {
@@ -32,6 +38,11 @@ export async function GET() {
       data: {
         ...settings,
         openingHours,
+        openingHoursRows,
+        orderAvailability: {
+          delivery: deliveryAvailability,
+          pickup: pickupAvailability,
+        },
         deliveryZones,
       },
     })

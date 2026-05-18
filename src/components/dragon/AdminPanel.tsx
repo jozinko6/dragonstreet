@@ -5,6 +5,7 @@ import { useAdmin } from '@/lib/store'
 import { statusLabels, menuItems, deliveryZones } from '@/lib/data'
 import type { MenuItem, MenuResponse } from '@/lib/menu-api'
 import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
+import { StaffGate } from '@/components/dragon/StaffGate'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -29,6 +30,7 @@ export function AdminPanel() {
   const { adminTab, setAdminTab } = useAdmin()
 
   return (
+    <StaffGate role="admin" title="Admin panel">
     <div className="animate-float-up">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center gap-3 mb-6">
@@ -78,6 +80,7 @@ export function AdminPanel() {
         </Tabs>
       </div>
     </div>
+    </StaffGate>
   )
 }
 
