@@ -20,13 +20,23 @@ export async function GET() {
       },
     })
 
-    // Also return a flat items list for convenience
-    const items = categories.flatMap((cat) => cat.items)
+    const categoriesWithParsedItems = categories.map((category) => ({
+      ...category,
+      items: category.items.map((item) => ({
+        ...item,
+        allergens: item.allergens
+          ? item.allergens.split(',').map((allergen) => allergen.trim()).filter(Boolean)
+          : [],
+      })),
+    }))
+
+    // Also return a flat items list for convenience.
+    const items = categoriesWithParsedItems.flatMap((cat) => cat.items)
 
     return NextResponse.json({
       success: true,
       data: {
-        categories,
+        categories: categoriesWithParsedItems,
         items,
       },
     })

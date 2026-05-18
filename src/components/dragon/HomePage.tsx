@@ -1,20 +1,82 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigation, useCart } from '@/lib/store'
-import { menuItems, categories, openingHours } from '@/lib/data'
+import type { MenuResponse, OpeningHour } from '@/lib/menu-api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Flame, Truck, Clock, Star, ChevronRight, MapPin, Phone, ArrowRight, Send, Store, Tag, MessageCircle, Heart } from 'lucide-react'
+import { Flame, Truck, Clock, Star, ChevronRight, MapPin, Phone, ArrowRight, Store, Tag, MessageCircle, Heart } from 'lucide-react'
 
 export function HomePage() {
   const { navigate } = useNavigation()
   const { addItem } = useCart()
-  const popularItems = menuItems.filter((i) => i.isPopular && i.isAvailable).slice(0, 4)
+  const [menuData, setMenuData] = useState<MenuResponse>({ categories: [], items: [] })
+  const [openingHours, setOpeningHours] = useState<OpeningHour[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadHomeData() {
+      try {
+        setIsLoading(true)
+        setError('')
+        const [menuResponse, settingsResponse] = await Promise.all([
+          fetch('/api/menu', { cache: 'no-store' }),
+          fetch('/api/settings', { cache: 'no-store' }),
+        ])
+
+        if (!menuResponse.ok) {
+          throw new Error('Menu sa nepodarilo nacitat')
+        }
+
+        const menuJson = await menuResponse.json()
+        if (!menuJson.success) {
+          throw new Error(menuJson.error || 'Menu sa nepodarilo nacitat')
+        }
+
+        let hours: OpeningHour[] = []
+        if (settingsResponse.ok) {
+          const settingsJson = await settingsResponse.json()
+          if (settingsJson.success && Array.isArray(settingsJson.data.openingHours)) {
+            hours = settingsJson.data.openingHours
+          }
+        }
+
+        if (isMounted) {
+          setMenuData(menuJson.data)
+          setOpeningHours(hours)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Data sa nepodarilo nacitat')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadHomeData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const popularItems = useMemo(
+    () => menuData.items.filter((i) => i.isPopular && i.isAvailable).slice(0, 4),
+    [menuData.items]
+  )
 
   // Categories to skip for the homepage display
-  const skipCategoryIds = ['cat-3', 'cat-4', 'cat-22', 'cat-24'] // Denné menu, Polievka dňa, Dresingy, Nočný rozvoz
-  const mainCategories = categories.filter((c) => !skipCategoryIds.includes(c.id)).slice(0, 12)
+  const mainCategories = useMemo(() => {
+    const skipCategorySlugs = new Set(['denne-menu', 'polievka-dna', 'dresingy', 'nocny-rozvoz'])
+    return menuData.categories.filter((c) => !skipCategorySlugs.has(c.slug)).slice(0, 12)
+  }, [menuData.categories])
 
   return (
     <div className="animate-float-up">
@@ -111,7 +173,18 @@ export function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {popularItems.map((item) => (
+            {isLoading && Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index} className="overflow-hidden border-0 shadow-md">
+                <div className="h-48 bg-muted animate-pulse" />
+                <CardContent className="p-4 space-y-3">
+                  <div className="h-5 bg-muted rounded animate-pulse" />
+                  <div className="h-8 bg-muted rounded animate-pulse" />
+                  <div className="h-9 bg-muted rounded animate-pulse" />
+                </CardContent>
+              </Card>
+            ))}
+
+            {!isLoading && popularItems.map((item) => (
               <Card
                 key={item.id}
                 className="food-card-hover overflow-hidden border-0 shadow-md cursor-pointer group"
@@ -177,6 +250,14 @@ export function HomePage() {
             ))}
           </div>
 
+          {!isLoading && error && (
+            <p className="text-sm text-dragon-red mt-4">{error}</p>
+          )}
+
+          {!isLoading && !error && popularItems.length === 0 && (
+            <p className="text-sm text-muted-foreground mt-4">Oblubene jedla zatial nie su dostupne.</p>
+          )}
+
           <div className="mt-6 text-center sm:hidden">
             <Button
               onClick={() => navigate('menu')}
@@ -199,7 +280,11 @@ export function HomePage() {
             <p className="text-white/50 text-sm mt-2">Vyberte si z našich kategórií</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {mainCategories.map((cat) => (
+            {isLoading && Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="rounded-2xl aspect-square bg-white/10 animate-pulse" />
+            ))}
+
+            {!isLoading && mainCategories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => navigate('menu')}
@@ -403,12 +488,14 @@ export function HomePage() {
                   Otváracie hodiny
                 </h3>
                 <div className="space-y-3">
-                  {openingHours.map((h, i) => (
+                  {openingHours.length > 0 ? openingHours.map((h, i) => (
                     <div key={i} className="flex justify-between items-center">
                       <span className="text-sm font-medium">{h.day}</span>
                       <span className={`text-sm ${h.isClosed ? 'text-dragon-red font-medium' : 'text-muted-foreground'}`}>{h.hours}</span>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-sm text-muted-foreground">OtvĂˇracie hodiny sa nepodarilo nacitat.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

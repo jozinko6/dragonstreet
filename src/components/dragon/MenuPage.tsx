@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useNavigation, useCart, CartItem } from '@/lib/store'
-import { menuItems, categories, allergenMap } from '@/lib/data'
+import { useEffect, useState, useMemo } from 'react'
+import { useCart } from '@/lib/store'
+import { allergenMap, type MenuItem, type MenuResponse } from '@/lib/menu-api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,50 +13,50 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Search, Star, Flame, Leaf, Plus, Minus, ShoppingCart, AlertTriangle, Beer, Zap, Award, ClipboardList } from 'lucide-react'
+import { Search, Star, Plus, Minus, ShoppingCart, AlertTriangle } from 'lucide-react'
 
 // ─── Badge helper ──────────────────────────────────────────────────────────────
-function ItemBadges({ item, size = 'sm' }: { item: (typeof menuItems)[0]; size?: 'sm' | 'xs' }) {
-  const textClass = size === 'xs' ? 'text-[9px]' : 'text-[10px]'
+function ItemBadges({ item, size = 'sm' }: { item: MenuItem; size?: 'sm' | 'xs' }) {
+  const badgeClass = size === 'xs' ? 'text-[9px]' : 'text-[10px]'
   return (
     <>
       {item.isPopular && (
-        <Badge className="bg-dragon-red text-white border-0">
+        <Badge className={`bg-dragon-red text-white border-0 ${badgeClass}`}>
           <Star className="w-3 h-3 mr-0.5" /> TOP
         </Badge>
       )}
       {item.isSpicy && (
-        <Badge className="bg-orange-500 text-white border-0">
+        <Badge className={`bg-orange-500 text-white border-0 ${badgeClass}`}>
           🌶 Pálivé
         </Badge>
       )}
       {item.isNew && (
-        <Badge className="bg-dragon-lime text-dragon-dark border-0">
+        <Badge className={`bg-dragon-lime text-dragon-dark border-0 ${badgeClass}`}>
           NOVINKA
         </Badge>
       )}
       {item.isVegetarian && (
-        <Badge className="bg-green-500 text-white border-0">
+        <Badge className={`bg-green-500 text-white border-0 ${badgeClass}`}>
           🌿 Veg
         </Badge>
       )}
       {item.isAlcohol && (
-        <Badge className="bg-gray-800 text-white border-0">
+        <Badge className={`bg-gray-800 text-white border-0 ${badgeClass}`}>
           🍺 18+
         </Badge>
       )}
       {item.isDailyDeal && (
-        <Badge className="bg-orange-500 text-white border-0">
+        <Badge className={`bg-orange-500 text-white border-0 ${badgeClass}`}>
           🔥 AKCIA
         </Badge>
       )}
       {item.isWeeklySpecial && (
-        <Badge className="bg-purple-600 text-white border-0">
+        <Badge className={`bg-purple-600 text-white border-0 ${badgeClass}`}>
           ⭐ ŠPECIÁL
         </Badge>
       )}
       {item.isDailyMenu && (
-        <Badge className="bg-blue-600 text-white border-0">
+        <Badge className={`bg-blue-600 text-white border-0 ${badgeClass}`}>
           📋 MENU
         </Badge>
       )}
@@ -77,11 +77,51 @@ export function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
+  const [menuData, setMenuData] = useState<MenuResponse>({ categories: [], items: [] })
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
   const { addItem } = useCart()
-  const { navigate } = useNavigation()
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadMenu() {
+      try {
+        setIsLoading(true)
+        setError('')
+        const response = await fetch('/api/menu', { cache: 'no-store' })
+        if (!response.ok) {
+          throw new Error('Menu sa nepodarilo nacitat')
+        }
+
+        const json = await response.json()
+        if (!json.success) {
+          throw new Error(json.error || 'Menu sa nepodarilo nacitat')
+        }
+
+        if (isMounted) {
+          setMenuData(json.data)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Data sa nepodarilo nacitat')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadMenu()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const filteredItems = useMemo(() => {
-    let items = menuItems
+    let items = menuData.items
     if (selectedCategory) {
       items = items.filter((i) => i.categoryId === selectedCategory)
     }
@@ -95,10 +135,10 @@ export function MenuPage() {
       )
     }
     return items
-  }, [selectedCategory, searchQuery])
+  }, [menuData.items, selectedCategory, searchQuery])
 
   const selectedItemData = selectedItem
-    ? menuItems.find((i) => i.id === selectedItem)
+    ? menuData.items.find((i) => i.id === selectedItem)
     : null
 
   return (
@@ -140,7 +180,7 @@ export function MenuPage() {
             >
               Všetko
             </button>
-            {categories.map((cat) => (
+            {menuData.categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
@@ -160,7 +200,18 @@ export function MenuPage() {
       {/* Menu Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredItems.map((item) => (
+          {isLoading && Array.from({ length: 9 }).map((_, index) => (
+            <Card key={index} className="overflow-hidden border-0 shadow-md">
+              <div className="h-44 bg-muted animate-pulse" />
+              <CardContent className="p-4 space-y-3">
+                <div className="h-5 bg-muted rounded animate-pulse" />
+                <div className="h-8 bg-muted rounded animate-pulse" />
+                <div className="h-9 bg-muted rounded animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+
+          {!isLoading && filteredItems.map((item) => (
             <Card
               key={item.id}
               className={`food-card-hover overflow-hidden border-0 shadow-md cursor-pointer group ${
@@ -239,7 +290,20 @@ export function MenuPage() {
           ))}
         </div>
 
-        {filteredItems.length === 0 && (
+        {!isLoading && error && (
+          <div className="text-center py-16">
+            <p className="text-dragon-red font-medium">{error}</p>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              className="mt-4 border-dragon-red text-dragon-red hover:bg-dragon-red/5"
+            >
+              Skusit znova
+            </Button>
+          </div>
+        )}
+
+        {!isLoading && !error && filteredItems.length === 0 && (
           <div className="text-center py-16">
             <p className="text-4xl mb-3">🔍</p>
             <p className="text-muted-foreground">Žiadne jedlá nezodpovedajú vášmu vyhľadávaniu</p>
@@ -267,11 +331,10 @@ function ItemDetail({
   item,
   onClose,
 }: {
-  item: (typeof menuItems)[0]
+  item: MenuItem
   onClose: () => void
 }) {
   const { addItem } = useCart()
-  const { navigate } = useNavigation()
   const [quantity, setQuantity] = useState(1)
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string>>({})
@@ -279,8 +342,8 @@ function ItemDetail({
 
   // Group addons by modifierGroup
   const groupedAddons = useMemo(() => {
-    const groups: { group: string | null; label: string; addons: (typeof item.addons)[] }[] = []
-    const groupMap = new Map<string | null, (typeof item.addons)>()
+    const groups: { group: string | null; label: string; addons: MenuItem['addons'] }[] = []
+    const groupMap = new Map<string | null, MenuItem['addons']>()
 
     for (const addon of item.addons) {
       const key = addon.isModifier && addon.modifierGroup ? addon.modifierGroup : null
