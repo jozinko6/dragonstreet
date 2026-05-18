@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Restaurant Settings ───────────────────────────────────────────────────────
+
+model RestaurantSettings {
+  id                   String   @id @default(cuid())
+  name                 String   @default("Dragon Street Food Hlohovec")
+  address              String   @default("")
+  phone                String   @default("")
+  email                String   @default("")
+  openingHours         String   @default("{}") // JSON string for opening hours
+  minOrderAmount       Float    @default(0)
+  deliveryFee          Float    @default(0)
+  freeDeliveryThreshold Float   @default(0)
+  isActive             Boolean  @default(true)
+  acceptOnlineOrders   Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// ─── Menu ──────────────────────────────────────────────────────────────────────
+
+model MenuCategory {
+  id          String     @id @default(cuid())
+  name        String
+  nameSk      String     @default("")
+  slug        String     @unique
+  description String     @default("")
+  image       String     @default("")
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  items       MenuItem[]
+
+  @@index([slug])
+  @@index([sortOrder])
+  @@index([isActive])
+}
+
+model MenuItem {
+  id            String      @id @default(cuid())
+  categoryId    String
+  name          String
+  nameSk        String      @default("")
+  description   String      @default("")
+  descriptionSk String      @default("")
+  price         Float
+  image         String      @default("")
+  isPopular     Boolean     @default(false)
+  isSpicy       Boolean     @default(false)
+  isNew         Boolean     @default(false)
+  isVegetarian  Boolean     @default(false)
+  isAvailable   Boolean     @default(true)
+  allergens     String      @default("") // Comma-separated allergen codes
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  category      MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  addons        ItemAddon[]
+  orderItems    OrderItem[]
+
+  @@index([categoryId])
+  @@index([isAvailable])
+  @@index([isPopular])
+  @@index([sortOrder])
+}
+
+model ItemAddon {
+  id          String    @id @default(cuid())
+  menuItemId  String
+  name        String
+  nameSk      String    @default("")
+  price       Float     @default(0)
+  isAvailable Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItemAddons OrderItemAddon[]
+
+  @@index([menuItemId])
+  @@index([isAvailable])
+}
+
+// ─── Customers & Addresses ─────────────────────────────────────────────────────
+
+model Customer {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String    @default("")
+  firstName     String    @default("")
+  lastName      String    @default("")
+  passwordHash  String    @default("")
+  loyaltyPoints Int       @default(0)
+  referralCode  String    @unique @default("")
+  referredBy    String?   // referral code of the referring customer
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  addresses     Address[]
+  orders        Order[]
+  reviews       Review[]
+
+  @@index([email])
+  @@index([referralCode])
+}
+
+model Address {
+  id          String    @id @default(cuid())
+  customerId  String
+  street      String
+  city        String    @default("Hlohovec")
+  postalCode  String    @default("")
+  notes       String    @default("")
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// ─── Orders ────────────────────────────────────────────────────────────────────
+
+enum DeliveryType {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderStatus {
+  CREATED
+  PAYMENT_PENDING
+  PAID
+  ACCEPTED
+  REJECTED
+  PREPARING
+  READY_FOR_PICKUP
+  COURIER_ASSIGNED
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  CARD_ONLINE
+  PICKUP_PAY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Order {
+  id                    String       @id @default(cuid())
+  orderNumber           String       @unique
+  customerId            String?
+  guestEmail            String       @default("")
+  guestPhone            String       @default("")
+  guestFirstName        String       @default("")
+  guestLastName         String       @default("")
+  deliveryType          DeliveryType @default(DELIVERY)
+  status                OrderStatus  @default(CREATED)
+  deliveryAddress       String       @default("")
+  deliveryCity          String       @default("")
+  deliveryPostalCode    String       @default("")
+  deliveryNotes         String       @default("")
+  pickupTime            String       @default("")
+  subtotal              Float        @default(0)
+  deliveryFee           Float        @default(0)
+  discount              Float        @default(0)
+  totalAmount           Float        @default(0)
+  paymentMethod         PaymentMethod @default(CASH_ON_DELIVERY)
+  paymentStatus         PaymentStatus @default(PENDING)
+  promoCode             String       @default("")
+  courierId             String?
+  estimatedDeliveryTime String       @default("")
+  actualDeliveryTime    String       @default("")
+  notes                 String       @default("")
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  customer              Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  courier               Courier?     @relation(fields: [courierId], references: [id], onDelete: SetNull)
+  items                 OrderItem[]
+  statusHistory         OrderStatusHistory[]
+  review                Review?
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([customerId])
+  @@index([courierId])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id              String    @id @default(cuid())
+  orderId         String
+  menuItemId      String?
+  menuItemName    String
+  menuItemNameSk  String    @default("")
+  quantity        Int       @default(1)
+  unitPrice       Float
+  addonsPrice     Float     @default(0)
+  totalPrice      Float
+  notes           String    @default("")
+  createdAt       DateTime  @default(now())
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  selectedAddons  OrderItemAddon[]
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+model OrderItemAddon {
+  id            String      @id @default(cuid())
+  orderItemId   String
+  addonId       String?
+  addonName     String
+  addonNameSk   String      @default("")
+  price         Float       @default(0)
+  orderItem     OrderItem   @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addon         ItemAddon?  @relation(fields: [addonId], references: [id], onDelete: SetNull)
+
+  @@index([orderItemId])
+  @@index([addonId])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  note      String      @default("")
+  changedBy String      @default("system")
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+// ─── Courier ───────────────────────────────────────────────────────────────────
+
+model Courier {
+  id          String    @id @default(cuid())
+  firstName   String
+  lastName    String
+  phone       String
+  email       String    @default("")
+  isAvailable Boolean   @default(true)
+  isOnline    Boolean   @default(false)
+  vehicleType String    @default("bicycle") // bicycle, motorcycle, car
+  currentLat  Float     @default(0)
+  currentLng  Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  orders      Order[]
+
+  @@index([isAvailable])
+  @@index([isOnline])
+}
+
+// ─── Delivery Zone ─────────────────────────────────────────────────────────────
+
+model DeliveryZone {
+  id             String   @id @default(cuid())
+  name           String
+  postalCodes    String   // Comma-separated postal codes
+  deliveryFee    Float    @default(0)
+  minOrderAmount Float    @default(0)
+  estimatedTime  String   @default("") // e.g., "30-45 min"
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// ─── Promo Code ────────────────────────────────────────────────────────────────
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model PromoCode {
+  id             String       @id @default(cuid())
+  code           String       @unique
+  description    String       @default("")
+  discountType   DiscountType @default(PERCENTAGE)
+  discountValue  Float
+  minOrderAmount Float        @default(0)
+  maxUses        Int          @default(0) // 0 = unlimited
+  currentUses    Int          @default(0)
+  validFrom      DateTime     @default(now())
+  validTo        DateTime?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@index([validFrom])
+}
+
+// ─── Reviews ───────────────────────────────────────────────────────────────────
+
+model Review {
+  id         String    @id @default(cuid())
+  orderId    String    @unique
+  customerId String
+  rating     Int       // 1-5
+  comment    String    @default("")
+  createdAt  DateTime  @default(now())
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([customerId])
+  @@index([rating])
+}
