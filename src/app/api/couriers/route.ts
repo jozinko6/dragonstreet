@@ -10,7 +10,7 @@ export async function GET() {
         orders: {
           where: {
             status: {
-              in: ['ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'COURIER_ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY'],
+              in: ['COURIER_ASSIGNED', 'COURIER_ON_WAY', 'PICKED_UP', 'OUT_FOR_DELIVERY'],
             },
           },
           select: {

@@ -12,6 +12,8 @@ export interface OrderListItem {
   notes: string
   createdAt: string
   estimatedTime: string
+  courierId: string
+  courierName: string
 }
 
 interface ApiOrderItem {
@@ -38,6 +40,13 @@ interface ApiOrder {
   createdAt: string
   estimatedDeliveryTime?: string
   pickupTime?: string
+  courierId?: string | null
+  courier?: {
+    id: string
+    firstName: string
+    lastName: string
+    phone?: string
+  } | null
   items: ApiOrderItem[]
 }
 
@@ -65,5 +74,9 @@ export function mapApiOrder(order: ApiOrder): OrderListItem {
       ? ''
       : createdAt.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }),
     estimatedTime: order.estimatedDeliveryTime || order.pickupTime || '30-45 min',
+    courierId: order.courierId || order.courier?.id || '',
+    courierName: order.courier
+      ? [order.courier.firstName, order.courier.lastName].filter(Boolean).join(' ')
+      : '',
   }
 }

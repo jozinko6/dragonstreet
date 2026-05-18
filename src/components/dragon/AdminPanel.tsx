@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAdmin } from '@/lib/store'
-import { mockCouriers, statusLabels, menuItems, deliveryZones } from '@/lib/data'
+import { statusLabels, menuItems, deliveryZones } from '@/lib/data'
 import type { MenuItem, MenuResponse } from '@/lib/menu-api'
 import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
 import { Button } from '@/components/ui/button'
@@ -83,9 +83,21 @@ export function AdminPanel() {
 
 // ─── Orders Tab ──────────────────────────────────────────────────────────────────
 
+type CourierOption = {
+  id: string
+  firstName: string
+  lastName: string
+  phone: string
+  vehicleType: string
+  isAvailable: boolean
+  isOnline: boolean
+  orders?: { id: string; orderNumber: string; status: string }[]
+}
+
 function OrdersTab() {
   const [search, setSearch] = useState('')
   const [orders, setOrders] = useState<OrderListItem[]>([])
+  const [couriers, setCouriers] = useState<CourierOption[]>([])
   const [problemOrderId, setProblemOrderId] = useState<string | null>(null)
   const [problemReason, setProblemReason] = useState('')
   const [error, setError] = useState('')
@@ -104,9 +116,26 @@ function OrdersTab() {
     }
   }
 
+  const loadCouriers = async () => {
+    try {
+      const response = await fetch('/api/couriers', { cache: 'no-store' })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Kurierov sa nepodarilo nacitat')
+      }
+      setCouriers(json.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kurierov sa nepodarilo nacitat')
+    }
+  }
+
   useEffect(() => {
     loadOrders()
-    const intervalId = window.setInterval(loadOrders, 10000)
+    loadCouriers()
+    const intervalId = window.setInterval(() => {
+      loadOrders()
+      loadCouriers()
+    }, 10000)
     return () => window.clearInterval(intervalId)
   }, [])
 
@@ -137,6 +166,39 @@ function OrdersTab() {
     } catch (err) {
       setOrders(previousOrders)
       setError(err instanceof Error ? err.message : 'Stav sa nepodarilo ulozit')
+    }
+  }
+
+  const assignCourier = async (orderId: string, courierId: string | null) => {
+    const previousOrders = orders
+    const courier = couriers.find((item) => item.id === courierId)
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              courierId: courierId || '',
+              courierName: courier ? `${courier.firstName} ${courier.lastName}` : '',
+            }
+          : order
+      )
+    )
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ courierId, changedBy: 'admin' }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Kuriera sa nepodarilo priradit')
+      }
+      await loadOrders()
+      await loadCouriers()
+    } catch (err) {
+      setOrders(previousOrders)
+      setError(err instanceof Error ? err.message : 'Kuriera sa nepodarilo priradit')
     }
   }
 
@@ -211,6 +273,29 @@ function OrdersTab() {
                       <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         {order.address}
+                      </div>
+                    )}
+                    {order.deliveryType === 'DELIVERY' && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          Kurier: {order.courierName || 'nepriradeny'}
+                        </Badge>
+                        <Select
+                          value={order.courierId || 'none'}
+                          onValueChange={(value) => assignCourier(order.id, value === 'none' ? null : value)}
+                        >
+                          <SelectTrigger className="h-7 w-[180px] text-xs">
+                            <SelectValue placeholder="Priradit kuriera" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Bez kuriera</SelectItem>
+                            {couriers.map((courier) => (
+                              <SelectItem key={courier.id} value={courier.id}>
+                                {courier.firstName} {courier.lastName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
                     {order.notes && (
@@ -720,17 +805,62 @@ function AdminMenuTab() {
 }
 
 function CouriersTab() {
+  const [couriers, setCouriers] = useState<CourierOption[]>([])
+  const [error, setError] = useState('')
+
+  const loadCouriers = async () => {
+    try {
+      const response = await fetch('/api/couriers', { cache: 'no-store' })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Kurierov sa nepodarilo nacitat')
+      }
+      setCouriers(json.data)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kurierov sa nepodarilo nacitat')
+    }
+  }
+
+  const updateCourier = async (id: string, data: { isAvailable?: boolean; isOnline?: boolean }) => {
+    const previousCouriers = couriers
+    setCouriers((prev) => prev.map((courier) => (courier.id === id ? { ...courier, ...data } : courier)))
+
+    try {
+      const response = await fetch('/api/couriers', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, ...data }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Kuriera sa nepodarilo ulozit')
+      }
+      await loadCouriers()
+    } catch (err) {
+      setCouriers(previousCouriers)
+      setError(err instanceof Error ? err.message : 'Kuriera sa nepodarilo ulozit')
+    }
+  }
+
+  useEffect(() => {
+    loadCouriers()
+    const intervalId = window.setInterval(loadCouriers, 10000)
+    return () => window.clearInterval(intervalId)
+  }, [])
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-dragon-dark">Kuriéri</h3>
-        <Button className="bg-dragon-red hover:bg-dragon-red-dark text-white text-xs">
+        <h3 className="font-bold text-dragon-dark">Kurieri</h3>
+        <Button className="bg-dragon-red hover:bg-dragon-red-dark text-white text-xs" disabled>
           <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-          Pridať kuriéra
+          Pridat kuriera
         </Button>
       </div>
+      {error && <div className="mb-4 text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</div>}
       <div className="space-y-3">
-        {mockCouriers.map((courier) => (
+        {couriers.map((courier) => (
           <Card key={courier.id} className="border-0 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
@@ -741,20 +871,28 @@ function CouriersTab() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{courier.name}</span>
+                    <span className="font-medium text-sm">{courier.firstName} {courier.lastName}</span>
                     <Badge className={`text-[10px] border-0 ${
                       courier.isOnline
                         ? courier.isAvailable ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}>
-                      {courier.isOnline ? (courier.isAvailable ? 'Dostupný' : 'Obsadený') : 'Offline'}
+                      {courier.isOnline ? (courier.isAvailable ? 'Dostupny' : 'Obsadeny') : 'Offline'}
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {courier.vehicleType} • {courier.location} • {courier.activeOrders} aktívnych
+                    {courier.vehicleType} - {courier.phone} - {courier.orders?.length || 0} aktivnych
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Online</span>
+                    <Switch checked={courier.isOnline} onCheckedChange={(isOnline) => updateCourier(courier.id, { isOnline })} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Dostupny</span>
+                    <Switch checked={courier.isAvailable} onCheckedChange={(isAvailable) => updateCourier(courier.id, { isAvailable })} />
+                  </div>
                   <Button variant="ghost" size="sm" className="text-xs">
                     <Phone className="w-3 h-3" />
                   </Button>
@@ -763,6 +901,9 @@ function CouriersTab() {
             </CardContent>
           </Card>
         ))}
+        {couriers.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-8">Ziadni kurieri.</p>
+        )}
       </div>
     </div>
   )

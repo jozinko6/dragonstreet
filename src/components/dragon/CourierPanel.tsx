@@ -10,9 +10,25 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Bike, Phone, MapPin, Package, CheckCircle2, Clock,
   Navigation, DollarSign, TrendingUp, AlertTriangle, Footprints
 } from 'lucide-react'
+
+type CourierOption = {
+  id: string
+  firstName: string
+  lastName: string
+  phone: string
+  isAvailable: boolean
+  isOnline: boolean
+}
 
 // Step mapping for courier delivery flow
 const COURIER_STEPS = [
@@ -45,9 +61,12 @@ function getNextAction(status: string): { label: string; nextStatus: string } | 
 export function CourierPanel() {
   const [isAvailable, setIsAvailable] = useState(true)
   const [orders, setOrders] = useState<OrderListItem[]>([])
+  const [couriers, setCouriers] = useState<CourierOption[]>([])
+  const [selectedCourierId, setSelectedCourierId] = useState('')
   const [problemOrderId, setProblemOrderId] = useState<string | null>(null)
   const [problemReason, setProblemReason] = useState('')
   const [error, setError] = useState('')
+  const selectedCourier = couriers.find((courier) => courier.id === selectedCourierId)
 
   const loadOrders = async () => {
     try {
@@ -63,22 +82,76 @@ export function CourierPanel() {
     }
   }
 
+  const loadCouriers = async () => {
+    try {
+      const response = await fetch('/api/couriers', { cache: 'no-store' })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Kurierov sa nepodarilo nacitat')
+      }
+      setCouriers(json.data)
+      setSelectedCourierId((current) => {
+        if (current && json.data.some((courier: CourierOption) => courier.id === current)) {
+          return current
+        }
+        const stored = window.localStorage.getItem('dragon-courier-id') || ''
+        if (stored && json.data.some((courier: CourierOption) => courier.id === stored)) {
+          return stored
+        }
+        return json.data[0]?.id || ''
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kurierov sa nepodarilo nacitat')
+    }
+  }
+
   useEffect(() => {
     loadOrders()
-    const intervalId = window.setInterval(loadOrders, 10000)
+    loadCouriers()
+    const intervalId = window.setInterval(() => {
+      loadOrders()
+      loadCouriers()
+    }, 10000)
     return () => window.clearInterval(intervalId)
   }, [])
 
+  useEffect(() => {
+    if (selectedCourierId) {
+      window.localStorage.setItem('dragon-courier-id', selectedCourierId)
+    }
+  }, [selectedCourierId])
+
+  const updateAvailability = async (available: boolean) => {
+    setIsAvailable(available)
+    if (!selectedCourierId) return
+
+    try {
+      const response = await fetch('/api/couriers', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: selectedCourierId, isAvailable: available, isOnline: true }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Dostupnost sa nepodarilo ulozit')
+      }
+      await loadCouriers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Dostupnost sa nepodarilo ulozit')
+    }
+  }
+
   const activeStatuses = ['COURIER_ASSIGNED', 'COURIER_ON_WAY', 'PICKED_UP', 'OUT_FOR_DELIVERY']
-  const assignedOrders = orders.filter((o) => activeStatuses.includes(o.status))
-  const completedOrders = orders.filter((o) => ['DELIVERED', 'COMPLETED'].includes(o.status))
+  const assignedOrders = orders.filter((o) => activeStatuses.includes(o.status) && (!selectedCourierId || o.courierId === selectedCourierId))
+  const completedOrders = orders.filter((o) => ['DELIVERED', 'COMPLETED'].includes(o.status) && (!selectedCourierId || o.courierId === selectedCourierId))
   const waitingOrders = orders.filter((o) =>
-    ['READY_FOR_PICKUP'].includes(o.status)
+    ['READY_FOR_PICKUP'].includes(o.status) && (!selectedCourierId || !o.courierId || o.courierId === selectedCourierId)
   )
+  const problemOrders = orders.filter((o) => o.status === 'PROBLEM' && (!selectedCourierId || o.courierId === selectedCourierId))
 
   const changeStatus = async (orderId: string, newStatus: string, note?: string) => {
     const previousOrders = orders
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)))
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, courierId: o.courierId || selectedCourierId } : o)))
     setProblemOrderId(null)
     setProblemReason('')
 
@@ -86,7 +159,7 @@ export function CourierPanel() {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, note, changedBy: 'courier' }),
+        body: JSON.stringify({ status: newStatus, courierId: selectedCourierId || undefined, note, changedBy: 'courier' }),
       })
       const json = await response.json()
       if (!response.ok || !json.success) {
@@ -114,19 +187,37 @@ export function CourierPanel() {
             <Bike className="w-6 h-6 text-dragon-red" />
             <div>
               <h1 className="text-xl font-bold text-dragon-dark">Kuriérsky panel</h1>
-              <p className="text-xs text-muted-foreground">Milan Števko</p>
+              <p className="text-xs text-muted-foreground">
+                {selectedCourier ? `${selectedCourier.firstName} ${selectedCourier.lastName}` : 'Vyberte kuriera'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Label htmlFor="availability" className="text-xs text-muted-foreground">
-              {isAvailable ? 'Dostupný' : 'Nedostupný'}
+              {(selectedCourier?.isAvailable ?? isAvailable) ? 'Dostupny' : 'Nedostupny'}
             </Label>
             <Switch
               id="availability"
-              checked={isAvailable}
-              onCheckedChange={setIsAvailable}
+              checked={selectedCourier?.isAvailable ?? isAvailable}
+              onCheckedChange={updateAvailability}
             />
           </div>
+        </div>
+
+        <div className="mb-4">
+          <Select value={selectedCourierId || 'none'} onValueChange={(value) => setSelectedCourierId(value === 'none' ? '' : value)}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Vyber kuriera" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Vsetci kurieri</SelectItem>
+              {couriers.map((courier) => (
+                <SelectItem key={courier.id} value={courier.id}>
+                  {courier.firstName} {courier.lastName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Stats */}
@@ -358,14 +449,14 @@ export function CourierPanel() {
         )}
 
         {/* Problem orders */}
-        {orders.filter((o) => o.status === 'PROBLEM').length > 0 && (
+        {problemOrders.length > 0 && (
           <div className="mb-6">
             <h3 className="font-bold text-sm text-red-600 mb-3 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
               Problémové objednávky
             </h3>
             <div className="space-y-3">
-              {orders.filter((o) => o.status === 'PROBLEM').map((order) => (
+              {problemOrders.map((order) => (
                 <Card key={order.id} className="border-0 shadow-md bg-red-50">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">

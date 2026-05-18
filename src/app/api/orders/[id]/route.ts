@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { findLeastBusyCourierId } from '@/lib/courier-assignment'
 import { OrderStatus } from '@prisma/client'
 
 // Valid status transitions
@@ -153,6 +154,25 @@ export async function PATCH(
     // Assign courier if provided
     if (courierId !== undefined) {
       updateData.courierId = courierId
+    }
+
+    const needsCourier =
+      existingOrder.deliveryType === 'DELIVERY' &&
+      !existingOrder.courierId &&
+      courierId === undefined &&
+      status &&
+      ['READY_FOR_PICKUP', 'COURIER_ASSIGNED', 'COURIER_ON_WAY', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(status)
+
+    if (needsCourier) {
+      const autoCourierId = await findLeastBusyCourierId()
+      if (autoCourierId) {
+        updateData.courierId = autoCourierId
+      } else if (status === 'COURIER_ASSIGNED') {
+        return NextResponse.json(
+          { success: false, error: 'No available courier found' },
+          { status: 400 }
+        )
+      }
     }
 
     const updatedOrder = await db.order.update({
