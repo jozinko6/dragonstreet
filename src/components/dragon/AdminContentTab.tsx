@@ -33,6 +33,14 @@ function Area({ label, value, onChange, rows = 3 }: { label: string; value: stri
 function ImageField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   const [isUploading, setIsUploading] = useState(false)
 
+  const readAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+
   const upload = async (file: File) => {
     setIsUploading(true)
     try {
@@ -44,6 +52,8 @@ function ImageField({ label, value, onChange }: { label: string; value: string; 
         throw new Error(json.error || 'Nahratie obrázka zlyhalo')
       }
       onChange(json.data.url)
+    } catch {
+      onChange(await readAsDataUrl(file))
     } finally {
       setIsUploading(false)
     }
