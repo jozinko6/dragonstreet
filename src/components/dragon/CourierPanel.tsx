@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { calculateCourierEarning, formatCourierEarningFormula } from '@/lib/courier-earnings'
 import { statusLabels } from '@/lib/data'
 import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
 import { StaffGate } from '@/components/dragon/StaffGate'
@@ -33,6 +34,7 @@ type CourierOption = {
   firstName: string
   lastName: string
   phone: string
+  vehicleType: string
   isAvailable: boolean
   isOnline: boolean
 }
@@ -52,6 +54,16 @@ const COURIER_STEPS = [
 
 function eur(value: number) {
   return `${value.toFixed(2)}€`
+}
+
+function getOrderEarning(order: OrderListItem, fallbackVehicleType?: string) {
+  return calculateCourierEarning({
+    vehicleType: order.courierVehicleType || fallbackVehicleType,
+    deliveryCity: order.deliveryCity,
+    deliveryPostalCode: order.deliveryPostalCode,
+    deliveryFee: order.deliveryFee,
+    createdAt: order.createdAtIso,
+  })
 }
 
 function getStepForStatus(status: string) {
@@ -125,17 +137,21 @@ function OrderSummary({ order }: { order: OrderListItem }) {
   )
 }
 
-function OrderEarningDetails({ order }: { order: OrderListItem }) {
+function OrderEarningDetails({ order, vehicleType }: { order: OrderListItem; vehicleType?: string }) {
+  const earning = getOrderEarning(order, vehicleType)
+
   return (
     <div className="space-y-2 text-xs mb-3">
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-2xl bg-dragon-red/10 border border-dragon-red/15 p-3">
           <div className="text-[10px] uppercase tracking-wide text-dragon-red font-semibold">Zárobok kuriéra</div>
-          <div className="text-xl font-bold text-dragon-red">{eur(order.courierEarning)}</div>
+          <div className="text-xl font-bold text-dragon-red">{eur(earning.total)}</div>
+          <div className="text-[10px] text-dragon-red/80">{earning.distanceKm.toFixed(1)} km · {earning.vehicleType === 'bicycle' ? 'bicykel' : 'auto'}</div>
         </div>
         <div className="rounded-2xl bg-muted/60 border border-border p-3">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Cena objednávky</div>
           <div className="text-xl font-bold text-dragon-dark">{eur(order.total)}</div>
+          <div className="text-[10px] text-muted-foreground">{earning.isPeak ? 'Peak +20%' : 'Bez peak príplatku'}</div>
         </div>
       </div>
       <div className="rounded-2xl bg-white border border-border p-3">
@@ -148,7 +164,7 @@ function OrderEarningDetails({ order }: { order: OrderListItem }) {
         </div>
       </div>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Zárobok kuriéra je poplatok za doručenie pri tejto objednávke. Cena objednávky je celková suma platená zákazníkom.
+        Výpočet zárobku: {formatCourierEarningFormula(earning)}. Cena objednávky je celková suma platená zákazníkom.
       </p>
     </div>
   )
@@ -256,22 +272,23 @@ export function CourierPanel() {
       if (soundEnabled) playNotificationSound()
       if (notificationsEnabled && 'Notification' in window) {
         freshOrders.slice(0, 3).forEach((order) => {
+          const earning = getOrderEarning(order, selectedCourier?.vehicleType)
           new Notification(`Nová objednávka ${order.orderNumber}`, {
-            body: `${order.address || 'Rozvoz'} - zárobok ${eur(order.courierEarning)}, objednávka ${eur(order.total)}`,
+            body: `${order.address || 'Rozvoz'} - zárobok ${eur(earning.total)}, ${earning.distanceKm.toFixed(1)} km`,
             icon: '/images/dragon-logo.png',
           })
         })
       }
       freshOrders.forEach((order) => seenNewOrderIds.current.add(order.id))
     }
-  }, [waitingOrders, notificationsEnabled, soundEnabled])
+  }, [waitingOrders, notificationsEnabled, soundEnabled, selectedCourier?.vehicleType])
 
   const totals = useMemo(() => {
     const deliveredOrderTotal = completedOrders.reduce((sum, order) => sum + order.total, 0)
-    const deliveredEarnings = completedOrders.reduce((sum, order) => sum + order.courierEarning, 0)
-    const activeEarnings = activeOrders.reduce((sum, order) => sum + order.courierEarning, 0)
+    const deliveredEarnings = completedOrders.reduce((sum, order) => sum + getOrderEarning(order, selectedCourier?.vehicleType).total, 0)
+    const activeEarnings = activeOrders.reduce((sum, order) => sum + getOrderEarning(order, selectedCourier?.vehicleType).total, 0)
     return { deliveredOrderTotal, deliveredEarnings, activeEarnings }
-  }, [activeOrders, completedOrders])
+  }, [activeOrders, completedOrders, selectedCourier?.vehicleType])
 
   const updateAvailability = async (available: boolean) => {
     if (!selectedCourierId) return
@@ -452,8 +469,8 @@ export function CourierPanel() {
               {waitingOrders.map((order) => (
                 <Card key={order.id} className="border-0 shadow-md rounded-3xl overflow-hidden">
                   <CardContent className="p-4">
-                    <OrderHeader order={order} />
-                    <OrderEarningDetails order={order} />
+                    <OrderHeader order={order} vehicleType={selectedCourier?.vehicleType} />
+                    <OrderEarningDetails order={order} vehicleType={selectedCourier?.vehicleType} />
                     <OrderSummary order={order} />
                     <div className="grid grid-cols-2 gap-2 mt-4">
                       <Button className="bg-dragon-red hover:bg-dragon-red-dark text-white rounded-2xl" onClick={() => changeOrder(order.id, 'COURIER_ASSIGNED', 'Kurier prijal objednavku')}>
@@ -477,9 +494,9 @@ export function CourierPanel() {
                 return (
                   <Card key={order.id} className="border-0 shadow-md rounded-3xl overflow-hidden">
                     <CardContent className="p-4">
-                      <OrderHeader order={order} />
+                      <OrderHeader order={order} vehicleType={selectedCourier?.vehicleType} />
                       <StepBar status={order.status} />
-                      <OrderEarningDetails order={order} />
+                      <OrderEarningDetails order={order} vehicleType={selectedCourier?.vehicleType} />
                       <OrderSummary order={order} />
                       {nextAction && (
                         <Button className="w-full bg-dragon-red hover:bg-dragon-red-dark text-white rounded-2xl mt-4" onClick={() => changeOrder(order.id, nextAction.nextStatus)}>
@@ -532,11 +549,11 @@ export function CourierPanel() {
               {completedOrders.map((order) => (
                 <Card key={order.id} className="border-0 shadow-sm rounded-3xl">
                   <CardContent className="p-4">
-                    <OrderHeader order={order} compact />
+                    <OrderHeader order={order} compact vehicleType={selectedCourier?.vehicleType} />
                     <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
                       <div className="rounded-xl bg-dragon-red/10 p-2">
                         <div className="text-[10px] text-dragon-red font-semibold">Zárobok</div>
-                        <div className="font-bold text-dragon-red">{eur(order.courierEarning)}</div>
+                        <div className="font-bold text-dragon-red">{eur(getOrderEarning(order, selectedCourier?.vehicleType).total)}</div>
                       </div>
                       <div className="rounded-xl bg-muted/60 p-2">
                         <div className="text-[10px] text-muted-foreground font-semibold">Cena objednávky</div>
@@ -555,8 +572,8 @@ export function CourierPanel() {
               {problemOrders.map((order) => (
                 <Card key={order.id} className="border-0 shadow-md rounded-3xl bg-red-50">
                   <CardContent className="p-4">
-                    <OrderHeader order={order} compact />
-                    <OrderEarningDetails order={order} />
+                    <OrderHeader order={order} compact vehicleType={selectedCourier?.vehicleType} />
+                    <OrderEarningDetails order={order} vehicleType={selectedCourier?.vehicleType} />
                     <OrderSummary order={order} />
                   </CardContent>
                 </Card>
@@ -569,7 +586,9 @@ export function CourierPanel() {
   )
 }
 
-function OrderHeader({ order, compact = false }: { order: OrderListItem; compact?: boolean }) {
+function OrderHeader({ order, compact = false, vehicleType }: { order: OrderListItem; compact?: boolean; vehicleType?: string }) {
+  const earning = getOrderEarning(order, vehicleType)
+
   return (
     <div className="flex items-start justify-between gap-3 mb-3">
       <div>
@@ -586,7 +605,7 @@ function OrderHeader({ order, compact = false }: { order: OrderListItem; compact
       </div>
       <div className="text-right">
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Zarobíš</div>
-        <div className="text-xl font-bold text-dragon-red">{eur(order.courierEarning)}</div>
+        <div className="text-xl font-bold text-dragon-red">{eur(earning.total)}</div>
         <div className="text-[10px] text-muted-foreground">Cena {eur(order.total)} · {order.paymentMethod}</div>
       </div>
     </div>

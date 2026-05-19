@@ -1,3 +1,5 @@
+import { calculateCourierEarning, formatCourierEarningFormula } from '@/lib/courier-earnings'
+
 export interface OrderListItem {
   id: string
   orderNumber: string
@@ -6,16 +8,23 @@ export interface OrderListItem {
   customerPhone: string
   deliveryType: 'DELIVERY' | 'PICKUP'
   address: string
+  deliveryCity: string
+  deliveryPostalCode: string
   items: { name: string; quantity: number; price: number }[]
   total: number
   deliveryFee: number
   courierEarning: number
+  courierEarningDistanceKm: number
+  courierEarningIsPeak: boolean
+  courierEarningFormula: string
   paymentMethod: string
   notes: string
   createdAt: string
   estimatedTime: string
   courierId: string
   courierName: string
+  courierVehicleType: string
+  createdAtIso: string
 }
 
 interface ApiOrderItem {
@@ -35,6 +44,7 @@ interface ApiOrder {
   deliveryType: 'DELIVERY' | 'PICKUP'
   deliveryAddress?: string
   deliveryCity?: string
+  deliveryPostalCode?: string
   deliveryNotes?: string
   totalAmount: number
   deliveryFee?: number
@@ -49,6 +59,7 @@ interface ApiOrder {
     firstName: string
     lastName: string
     phone?: string
+    vehicleType?: string
   } | null
   items: ApiOrderItem[]
 }
@@ -56,6 +67,13 @@ interface ApiOrder {
 export function mapApiOrder(order: ApiOrder): OrderListItem {
   const createdAt = new Date(order.createdAt)
   const customerName = [order.guestFirstName, order.guestLastName].filter(Boolean).join(' ') || 'Zakaznik'
+  const earning = calculateCourierEarning({
+    vehicleType: order.courier?.vehicleType,
+    deliveryCity: order.deliveryCity,
+    deliveryPostalCode: order.deliveryPostalCode,
+    deliveryFee: order.deliveryFee,
+    createdAt: order.createdAt,
+  })
 
   return {
     id: order.id,
@@ -65,6 +83,8 @@ export function mapApiOrder(order: ApiOrder): OrderListItem {
     customerPhone: order.guestPhone || '',
     deliveryType: order.deliveryType,
     address: [order.deliveryAddress, order.deliveryCity].filter(Boolean).join(', '),
+    deliveryCity: order.deliveryCity || '',
+    deliveryPostalCode: order.deliveryPostalCode || '',
     items: order.items.map((item) => ({
       name: item.menuItemNameSk || item.menuItemName,
       quantity: item.quantity,
@@ -72,7 +92,10 @@ export function mapApiOrder(order: ApiOrder): OrderListItem {
     })),
     total: order.totalAmount,
     deliveryFee: order.deliveryFee || 0,
-    courierEarning: order.deliveryFee || 0,
+    courierEarning: earning.total,
+    courierEarningDistanceKm: earning.distanceKm,
+    courierEarningIsPeak: earning.isPeak,
+    courierEarningFormula: formatCourierEarningFormula(earning),
     paymentMethod: order.paymentMethod,
     notes: [order.notes, order.deliveryNotes].filter(Boolean).join(' | '),
     createdAt: Number.isNaN(createdAt.getTime())
@@ -83,5 +106,7 @@ export function mapApiOrder(order: ApiOrder): OrderListItem {
     courierName: order.courier
       ? [order.courier.firstName, order.courier.lastName].filter(Boolean).join(' ')
       : '',
+    courierVehicleType: order.courier?.vehicleType || '',
+    createdAtIso: order.createdAt,
   }
 }

@@ -489,12 +489,20 @@ def build_story() -> list:
         table(
             [
                 ["Údaj v paneli", "Čo znamená"],
-                ["Zárobok kuriéra", "Suma, ktorú kuriér zarobí za doručenie konkrétnej objednávky. Aktuálne sa počíta ako poplatok za doručenie pri objednávke."],
+                ["Zárobok kuriéra", "Suma, ktorú kuriér zarobí za doručenie konkrétnej objednávky. Počíta sa podľa typu vozidla, odhadnutej vzdialenosti a prípadného peak príplatku."],
                 ["Cena objednávky", "Celková suma platená zákazníkom. Zahŕňa jedlo, doplnky, prípadný poplatok za doručenie a zľavy podľa nastavenia objednávky."],
                 ["Kam smeruje objednávka", "Adresa doručenia pre kuriéra. Pri každej objednávke ju treba skontrolovať spolu s telefónom a poznámkou."],
                 ["Tržba v doručených", "Súčet cien doručených objednávok. Nie je to zárobok kuriéra, ale suma objednávok pre prevádzku."],
             ],
             [4.4 * cm, 12.6 * cm],
+        )
+    )
+    story.append(
+        callout(
+            "MVP výpočet zárobku",
+            "Bicykel: <b>2,00 € + 0,40 €/km</b><br/>Auto alebo motorka: <b>3,00 € + 0,55 €/km</b><br/>Peak čas: <b>+20 %</b>. Vzdialenosť sa v prvej verzii odhaduje podľa mesta alebo PSČ objednávky v doručovacej zóne.",
+            fill="#FFF8F0",
+            stroke="#F4A261",
         )
     )
     story += subsection("Kroky doručenia")

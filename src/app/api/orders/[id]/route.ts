@@ -197,6 +197,7 @@ export async function PATCH(
             firstName: true,
             lastName: true,
             phone: true,
+            vehicleType: true,
           },
         },
         statusHistory: {
