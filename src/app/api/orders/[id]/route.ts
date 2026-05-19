@@ -13,7 +13,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   REJECTED: ['REFUNDED'],
   PREPARING: ['READY_FOR_PICKUP', 'CANCELLED', 'PROBLEM'],
   READY_FOR_PICKUP: ['COURIER_ASSIGNED', 'PICKED_UP', 'COMPLETED', 'CANCELLED', 'PROBLEM'],
-  COURIER_ASSIGNED: ['COURIER_ON_WAY', 'PICKED_UP', 'CANCELLED', 'PROBLEM'],
+  COURIER_ASSIGNED: ['READY_FOR_PICKUP', 'COURIER_ON_WAY', 'PICKED_UP', 'CANCELLED', 'PROBLEM'],
   COURIER_ON_WAY: ['PICKED_UP', 'CANCELLED', 'PROBLEM'],
   PICKED_UP: ['OUT_FOR_DELIVERY', 'CANCELLED', 'PROBLEM'],
   OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED', 'PROBLEM'],
@@ -93,6 +93,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const unauthorized = requireStaffAuth(request, ['admin', 'kitchen', 'courier'])
+    if (unauthorized) return unauthorized
+
     const { id } = await params
     const body = await request.json()
     const { status, courierId, note, changedBy = 'admin' } = body

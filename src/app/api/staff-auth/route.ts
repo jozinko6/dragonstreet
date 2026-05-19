@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 import { getStaffPassword, staffCookieName, type StaffRole } from '@/lib/staff-auth'
 
 function isStaffRole(role: string): role is StaffRole {
@@ -18,13 +19,18 @@ export async function GET(request: NextRequest) {
   }
 
   const authenticated = request.cookies.get(staffCookieName(role))?.value === '1'
-  return NextResponse.json({ success: true, authenticated })
+  return NextResponse.json({
+    success: true,
+    authenticated,
+    courierId: role === 'courier' ? request.cookies.get('dragon_courier_id')?.value || '' : '',
+  })
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const role = typeof body.role === 'string' ? body.role : ''
   const password = typeof body.password === 'string' ? body.password : ''
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   if (!isStaffRole(role)) {
     return NextResponse.json({ success: false, error: 'Invalid role' }, { status: 400 })
   }
@@ -42,7 +48,35 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const response = NextResponse.json({ success: true })
+  let courierId = ''
+  if (role === 'courier') {
+    if (!email) {
+      return NextResponse.json(
+        { success: false, error: 'Zadajte email kuriera' },
+        { status: 400 }
+      )
+    }
+
+    const courier = await db.courier.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true, isAvailable: true },
+    })
+
+    if (!courier) {
+      return NextResponse.json(
+        { success: false, error: 'Kurier s tymto emailom neexistuje' },
+        { status: 401 }
+      )
+    }
+
+    courierId = courier.id
+    await db.courier.update({
+      where: { id: courier.id },
+      data: { isOnline: true, isAvailable: courier.isAvailable },
+    })
+  }
+
+  const response = NextResponse.json({ success: true, courierId })
   response.cookies.set(staffCookieName(role), '1', {
     httpOnly: true,
     sameSite: 'lax',
@@ -50,5 +84,14 @@ export async function POST(request: NextRequest) {
     maxAge: 60 * 60 * 12,
     path: '/',
   })
+  if (role === 'courier') {
+    response.cookies.set('dragon_courier_id', courierId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12,
+      path: '/',
+    })
+  }
   return response
 }

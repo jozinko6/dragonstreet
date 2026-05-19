@@ -1,25 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { statusLabels } from '@/lib/data'
 import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
 import { StaffGate } from '@/components/dragon/StaffGate'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Bike, Phone, MapPin, Package, CheckCircle2, Clock,
-  Navigation, DollarSign, TrendingUp, AlertTriangle, Footprints
+  AlertTriangle,
+  Bell,
+  Bike,
+  CheckCircle2,
+  Clock,
+  Download,
+  Footprints,
+  MapPin,
+  Navigation,
+  Package,
+  Phone,
+  Volume2,
+  XCircle,
 } from 'lucide-react'
 
 type CourierOption = {
@@ -31,27 +36,36 @@ type CourierOption = {
   isOnline: boolean
 }
 
-// Step mapping for courier delivery flow
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+const ACTIVE_STATUSES = ['COURIER_ASSIGNED', 'COURIER_ON_WAY', 'PICKED_UP', 'OUT_FOR_DELIVERY']
 const COURIER_STEPS = [
-  { step: 1, status: 'COURIER_ASSIGNED', label: 'Idem do prevádzky', icon: '🚶' },
-  { step: 2, status: 'COURIER_ON_WAY', label: 'Vyzdvihnuté', icon: '📦' },
-  { step: 3, status: 'PICKED_UP', label: 'Na ceste', icon: '🛵' },
-  { step: 4, status: 'OUT_FOR_DELIVERY', label: 'Doručené', icon: '🏠' },
+  { step: 1, status: 'COURIER_ASSIGNED', label: 'Prijaté' },
+  { step: 2, status: 'COURIER_ON_WAY', label: 'Idem po jedlo' },
+  { step: 3, status: 'PICKED_UP', label: 'Vyzdvihnuté' },
+  { step: 4, status: 'OUT_FOR_DELIVERY', label: 'Na ceste' },
 ] as const
 
-function getStepForStatus(status: string): number {
-  const idx = COURIER_STEPS.findIndex(s => s.status === status)
-  return idx >= 0 ? idx + 1 : 0
+function eur(value: number) {
+  return `${value.toFixed(2)}€`
+}
+
+function getStepForStatus(status: string) {
+  const index = COURIER_STEPS.findIndex((step) => step.status === status)
+  return index >= 0 ? index + 1 : 0
 }
 
 function getNextAction(status: string): { label: string; nextStatus: string } | null {
   switch (status) {
     case 'COURIER_ASSIGNED':
-      return { label: 'Idem do prevádzky', nextStatus: 'COURIER_ON_WAY' }
+      return { label: 'Idem po jedlo', nextStatus: 'COURIER_ON_WAY' }
     case 'COURIER_ON_WAY':
       return { label: 'Vyzdvihnuté', nextStatus: 'PICKED_UP' }
     case 'PICKED_UP':
-      return { label: 'Na ceste', nextStatus: 'OUT_FOR_DELIVERY' }
+      return { label: 'Na ceste k zákazníkovi', nextStatus: 'OUT_FOR_DELIVERY' }
     case 'OUT_FOR_DELIVERY':
       return { label: 'Doručené', nextStatus: 'DELIVERED' }
     default:
@@ -59,27 +73,90 @@ function getNextAction(status: string): { label: string; nextStatus: string } | 
   }
 }
 
+function playNotificationSound() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) return
+    const context = new AudioContextClass()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(880, context.currentTime)
+    oscillator.frequency.setValueAtTime(660, context.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.001, context.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.25, context.currentTime + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.35)
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start()
+    oscillator.stop(context.currentTime + 0.4)
+  } catch {
+    // Sound is optional; browsers may block it until user interaction.
+  }
+}
+
+function OrderSummary({ order }: { order: OrderListItem }) {
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="flex items-start gap-2">
+        <MapPin className="w-4 h-4 text-dragon-red shrink-0 mt-0.5" />
+        <span className="font-medium text-dragon-dark">{order.address || 'Adresa nie je vyplnená'}</span>
+      </div>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Phone className="w-3.5 h-3.5" />
+        <a href={`tel:${order.customerPhone}`} className="hover:text-dragon-red">{order.customerPhone || 'Bez telefónu'}</a>
+      </div>
+      <div className="rounded-xl bg-muted/60 p-3">
+        <div className="font-semibold text-dragon-dark mb-1">Položky</div>
+        {order.items.map((item, index) => (
+          <div key={`${item.name}-${index}`} className="flex justify-between gap-3 py-0.5">
+            <span>{item.quantity}x {item.name}</span>
+            <span className="font-medium">{eur(item.quantity * item.price)}</span>
+          </div>
+        ))}
+      </div>
+      {order.notes && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-amber-800">
+          {order.notes}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function CourierPanel() {
-  const [isAvailable, setIsAvailable] = useState(true)
   const [orders, setOrders] = useState<OrderListItem[]>([])
   const [couriers, setCouriers] = useState<CourierOption[]>([])
   const [selectedCourierId, setSelectedCourierId] = useState('')
   const [problemOrderId, setProblemOrderId] = useState<string | null>(null)
   const [problemReason, setProblemReason] = useState('')
   const [error, setError] = useState('')
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
+  const seenNewOrderIds = useRef<Set<string>>(new Set())
+  const hasLoadedOnce = useRef(false)
+
   const selectedCourier = couriers.find((courier) => courier.id === selectedCourierId)
+
+  const loadSession = async () => {
+    const response = await fetch('/api/staff-auth?role=courier', { cache: 'no-store' })
+    const json = await response.json()
+    if (json.success && json.courierId) {
+      setSelectedCourierId(json.courierId)
+    }
+  }
 
   const loadOrders = async () => {
     try {
       const response = await fetch('/api/orders?limit=100', { cache: 'no-store' })
       const json = await response.json()
-      if (!response.ok || !json.success) {
-        throw new Error(json.error || 'Objednavky sa nepodarilo nacitat')
-      }
-      setOrders(json.data.map(mapApiOrder).filter((order: OrderListItem) => order.deliveryType === 'DELIVERY'))
+      if (!response.ok || !json.success) throw new Error(json.error || 'Objednávky sa nepodarilo načítať')
+      const deliveryOrders = json.data.map(mapApiOrder).filter((order: OrderListItem) => order.deliveryType === 'DELIVERY')
+      setOrders(deliveryOrders)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Objednavky sa nepodarilo nacitat')
+      setError(err instanceof Error ? err.message : 'Objednávky sa nepodarilo načítať')
     }
   }
 
@@ -87,45 +164,85 @@ export function CourierPanel() {
     try {
       const response = await fetch('/api/couriers', { cache: 'no-store' })
       const json = await response.json()
-      if (!response.ok || !json.success) {
-        throw new Error(json.error || 'Kurierov sa nepodarilo nacitat')
-      }
+      if (!response.ok || !json.success) throw new Error(json.error || 'Kuriérov sa nepodarilo načítať')
       setCouriers(json.data)
-      setSelectedCourierId((current) => {
-        if (current && json.data.some((courier: CourierOption) => courier.id === current)) {
-          return current
-        }
-        const stored = window.localStorage.getItem('dragon-courier-id') || ''
-        if (stored && json.data.some((courier: CourierOption) => courier.id === stored)) {
-          return stored
-        }
-        return json.data[0]?.id || ''
-      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kurierov sa nepodarilo nacitat')
+      setError(err instanceof Error ? err.message : 'Kuriérov sa nepodarilo načítať')
     }
   }
 
   useEffect(() => {
+    loadSession()
     loadOrders()
     loadCouriers()
     const intervalId = window.setInterval(() => {
       loadOrders()
       loadCouriers()
     }, 10000)
-    return () => window.clearInterval(intervalId)
+
+    const installListener = (event: Event) => {
+      event.preventDefault()
+      setInstallPrompt(event as InstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', installListener)
+
+    if ('Notification' in window) {
+      setNotificationsEnabled(Notification.permission === 'granted')
+    }
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('beforeinstallprompt', installListener)
+    }
   }, [])
 
+  const waitingOrders = useMemo(
+    () => orders.filter((order) => order.status === 'READY_FOR_PICKUP' && (!order.courierId || order.courierId === selectedCourierId)),
+    [orders, selectedCourierId]
+  )
+  const activeOrders = useMemo(
+    () => orders.filter((order) => ACTIVE_STATUSES.includes(order.status) && order.courierId === selectedCourierId),
+    [orders, selectedCourierId]
+  )
+  const completedOrders = useMemo(
+    () => orders.filter((order) => ['DELIVERED', 'COMPLETED'].includes(order.status) && order.courierId === selectedCourierId),
+    [orders, selectedCourierId]
+  )
+  const problemOrders = useMemo(
+    () => orders.filter((order) => order.status === 'PROBLEM' && (!order.courierId || order.courierId === selectedCourierId)),
+    [orders, selectedCourierId]
+  )
+
   useEffect(() => {
-    if (selectedCourierId) {
-      window.localStorage.setItem('dragon-courier-id', selectedCourierId)
+    if (!hasLoadedOnce.current) {
+      waitingOrders.forEach((order) => seenNewOrderIds.current.add(order.id))
+      hasLoadedOnce.current = true
+      return
     }
-  }, [selectedCourierId])
+
+    const freshOrders = waitingOrders.filter((order) => !seenNewOrderIds.current.has(order.id))
+    if (freshOrders.length > 0) {
+      if (soundEnabled) playNotificationSound()
+      if (notificationsEnabled && 'Notification' in window) {
+        freshOrders.slice(0, 3).forEach((order) => {
+          new Notification(`Nová objednávka ${order.orderNumber}`, {
+            body: `${order.address || 'Rozvoz'} - ${eur(order.total)}`,
+            icon: '/images/dragon-logo.png',
+          })
+        })
+      }
+      freshOrders.forEach((order) => seenNewOrderIds.current.add(order.id))
+    }
+  }, [waitingOrders, notificationsEnabled, soundEnabled])
+
+  const totals = useMemo(() => {
+    const deliveredTotal = completedOrders.reduce((sum, order) => sum + order.total, 0)
+    const activeTotal = activeOrders.reduce((sum, order) => sum + order.total, 0)
+    return { deliveredTotal, activeTotal }
+  }, [activeOrders, completedOrders])
 
   const updateAvailability = async (available: boolean) => {
-    setIsAvailable(available)
     if (!selectedCourierId) return
-
     try {
       const response = await fetch('/api/couriers', {
         method: 'PATCH',
@@ -133,26 +250,16 @@ export function CourierPanel() {
         body: JSON.stringify({ id: selectedCourierId, isAvailable: available, isOnline: true }),
       })
       const json = await response.json()
-      if (!response.ok || !json.success) {
-        throw new Error(json.error || 'Dostupnost sa nepodarilo ulozit')
-      }
+      if (!response.ok || !json.success) throw new Error(json.error || 'Dostupnosť sa nepodarilo uložiť')
       await loadCouriers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dostupnost sa nepodarilo ulozit')
+      setError(err instanceof Error ? err.message : 'Dostupnosť sa nepodarilo uložiť')
     }
   }
 
-  const activeStatuses = ['COURIER_ASSIGNED', 'COURIER_ON_WAY', 'PICKED_UP', 'OUT_FOR_DELIVERY']
-  const assignedOrders = orders.filter((o) => activeStatuses.includes(o.status) && (!selectedCourierId || o.courierId === selectedCourierId))
-  const completedOrders = orders.filter((o) => ['DELIVERED', 'COMPLETED'].includes(o.status) && (!selectedCourierId || o.courierId === selectedCourierId))
-  const waitingOrders = orders.filter((o) =>
-    ['READY_FOR_PICKUP'].includes(o.status) && (!selectedCourierId || !o.courierId || o.courierId === selectedCourierId)
-  )
-  const problemOrders = orders.filter((o) => o.status === 'PROBLEM' && (!selectedCourierId || o.courierId === selectedCourierId))
-
-  const changeStatus = async (orderId: string, newStatus: string, note?: string) => {
+  const changeOrder = async (orderId: string, status: string, note?: string, courierId: string | null | undefined = selectedCourierId) => {
     const previousOrders = orders
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, courierId: o.courierId || selectedCourierId } : o)))
+    setOrders((prev) => prev.map((order) => (order.id === orderId ? { ...order, status, courierId: courierId || '' } : order)))
     setProblemOrderId(null)
     setProblemReason('')
 
@@ -160,285 +267,188 @@ export function CourierPanel() {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, courierId: selectedCourierId || undefined, note, changedBy: 'courier' }),
+        body: JSON.stringify({ status, courierId, note, changedBy: 'courier' }),
       })
       const json = await response.json()
-      if (!response.ok || !json.success) {
-        throw new Error(json.error || 'Stav sa nepodarilo ulozit')
-      }
+      if (!response.ok || !json.success) throw new Error(json.error || 'Stav sa nepodarilo uložiť')
       await loadOrders()
     } catch (err) {
       setOrders(previousOrders)
-      setError(err instanceof Error ? err.message : 'Stav sa nepodarilo ulozit')
+      setError(err instanceof Error ? err.message : 'Stav sa nepodarilo uložiť')
     }
   }
 
-  const handleProblem = (orderId: string) => {
-    if (problemReason.trim()) {
-      changeStatus(orderId, 'PROBLEM', problemReason)
+  const releaseOrder = async (orderId: string) => {
+    const previousOrders = orders
+    setOrders((prev) => prev.map((order) => (order.id === orderId ? { ...order, courierId: '' } : order)))
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ courierId: null, changedBy: 'courier' }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) throw new Error(json.error || 'Objednávku sa nepodarilo odmietnuť')
+      await loadOrders()
+    } catch (err) {
+      setOrders(previousOrders)
+      setError(err instanceof Error ? err.message : 'Objednávku sa nepodarilo odmietnuť')
     }
+  }
+
+  const requestNotifications = async () => {
+    if (!('Notification' in window)) {
+      setError('Tento prehliadač nepodporuje notifikácie.')
+      return
+    }
+    const permission = await Notification.requestPermission()
+    setNotificationsEnabled(permission === 'granted')
+    if (permission === 'granted') {
+      new Notification('Notifikácie sú zapnuté', {
+        body: 'Nové objednávky sa zobrazia aj ako upozornenie.',
+        icon: '/images/dragon-logo.png',
+      })
+    }
+  }
+
+  const installApp = async () => {
+    if (!installPrompt) return
+    await installPrompt.prompt()
+    await installPrompt.userChoice
+    setInstallPrompt(null)
   }
 
   return (
-    <StaffGate role="courier" title="Kuriersky panel">
-    <div className="animate-float-up">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Bike className="w-6 h-6 text-dragon-red" />
-            <div>
-              <h1 className="text-xl font-bold text-dragon-dark">Kuriérsky panel</h1>
-              <p className="text-xs text-muted-foreground">
-                {selectedCourier ? `${selectedCourier.firstName} ${selectedCourier.lastName}` : 'Vyberte kuriera'}
-              </p>
+    <StaffGate role="courier" title="Kuriérsky panel">
+      <div className="animate-float-up bg-muted/30 min-h-screen">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
+          <div className="rounded-3xl bg-dragon-dark text-white p-5 shadow-xl shadow-dragon-dark/15 mb-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-dragon-red flex items-center justify-center">
+                  <Bike className="w-6 h-6" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">Kuriérsky panel</h1>
+                  <p className="text-xs text-white/60">
+                    {selectedCourier ? `${selectedCourier.firstName} ${selectedCourier.lastName}` : 'Prihlásený kuriér'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="availability" className="text-xs text-white/70">
+                  {selectedCourier?.isAvailable ? 'Dostupný' : 'Pauza'}
+                </Label>
+                <Switch id="availability" checked={Boolean(selectedCourier?.isAvailable)} onCheckedChange={updateAvailability} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mt-5">
+              <div className="rounded-2xl bg-white/8 p-3">
+                <div className="text-lg font-bold">{waitingOrders.length}</div>
+                <div className="text-[10px] text-white/50">Nové</div>
+              </div>
+              <div className="rounded-2xl bg-white/8 p-3">
+                <div className="text-lg font-bold">{eur(totals.activeTotal)}</div>
+                <div className="text-[10px] text-white/50">Na ceste</div>
+              </div>
+              <div className="rounded-2xl bg-white/8 p-3">
+                <div className="text-lg font-bold">{eur(totals.deliveredTotal)}</div>
+                <div className="text-[10px] text-white/50">Doručené</div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="availability" className="text-xs text-muted-foreground">
-              {(selectedCourier?.isAvailable ?? isAvailable) ? 'Dostupny' : 'Nedostupny'}
-            </Label>
-            <Switch
-              id="availability"
-              checked={selectedCourier?.isAvailable ?? isAvailable}
-              onCheckedChange={updateAvailability}
-            />
+
+          {error && <div className="mb-4 text-sm text-red-700 bg-red-50 rounded-xl p-3">{error}</div>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <Button variant="outline" className="justify-start rounded-2xl bg-white" onClick={requestNotifications}>
+              <Bell className="w-4 h-4 mr-2 text-dragon-red" />
+              {notificationsEnabled ? 'Notifikácie zapnuté' : 'Zapnúť notifikácie'}
+            </Button>
+            <Button variant="outline" className="justify-start rounded-2xl bg-white" onClick={() => {
+              setSoundEnabled((value) => !value)
+              if (!soundEnabled) playNotificationSound()
+            }}>
+              <Volume2 className="w-4 h-4 mr-2 text-dragon-red" />
+              Zvuk {soundEnabled ? 'zapnutý' : 'vypnutý'}
+            </Button>
+            <Button variant="outline" className="justify-start rounded-2xl bg-white" onClick={installApp} disabled={!installPrompt}>
+              <Download className="w-4 h-4 mr-2 text-dragon-red" />
+              Pridať na plochu
+            </Button>
           </div>
-        </div>
+          {!installPrompt && (
+            <p className="text-[11px] text-muted-foreground mb-4">
+              Ak tlačidlo nie je aktívne, použite v mobile menu prehliadača a voľbu Pridať na plochu / Add to Home Screen.
+            </p>
+          )}
 
-        <div className="mb-4">
-          <Select value={selectedCourierId || 'none'} onValueChange={(value) => setSelectedCourierId(value === 'none' ? '' : value)}>
-            <SelectTrigger className="h-9 text-xs">
-              <SelectValue placeholder="Vyber kuriera" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Vsetci kurieri</SelectItem>
-              {couriers.map((courier) => (
-                <SelectItem key={courier.id} value={courier.id}>
-                  {courier.firstName} {courier.lastName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          <Tabs defaultValue="new" className="space-y-4">
+            <TabsList className="grid grid-cols-4 h-auto rounded-2xl bg-white p-1 shadow-sm">
+              <TabsTrigger value="new" className="rounded-xl text-xs">Nové ({waitingOrders.length})</TabsTrigger>
+              <TabsTrigger value="active" className="rounded-xl text-xs">Aktívne ({activeOrders.length})</TabsTrigger>
+              <TabsTrigger value="done" className="rounded-xl text-xs">Doručené ({completedOrders.length})</TabsTrigger>
+              <TabsTrigger value="problem" className="rounded-xl text-xs">Problém ({problemOrders.length})</TabsTrigger>
+            </TabsList>
 
-        {/* Stats */}
-        {error && <div className="mb-4 text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</div>}
-
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-3 text-center">
-              <div className="flex items-center justify-center gap-1 text-lg font-bold text-dragon-red">
-                <DollarSign className="w-4 h-4" />
-                48.50€
-              </div>
-              <div className="text-[10px] text-muted-foreground">Dnešný zárobok</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-3 text-center">
-              <div className="text-lg font-bold text-dragon-dark">{completedOrders.length}</div>
-              <div className="text-[10px] text-muted-foreground">Doručení</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-3 text-center">
-              <div className="flex items-center justify-center gap-1 text-lg font-bold text-green-600">
-                <TrendingUp className="w-4 h-4" />
-                4.9★
-              </div>
-              <div className="text-[10px] text-muted-foreground">Hodnotenie</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Waiting for pickup */}
-        {waitingOrders.length > 0 && (
-          <div className="mb-6">
-            <h3 className="font-bold text-sm text-dragon-dark mb-3 flex items-center gap-2">
-              <Package className="w-4 h-4 text-dragon-orange" />
-              Čaká na vyzdvihnutie ({waitingOrders.length})
-            </h3>
-            <div className="space-y-3">
+            <TabsContent value="new" className="space-y-3">
+              {waitingOrders.length === 0 && <EmptyState title="Žiadne nové objednávky" text="Keď kuchyňa označí objednávku ako hotovú, zobrazí sa tu." />}
               {waitingOrders.map((order) => (
-                <Card key={order.id} className="border-0 shadow-md bg-dragon-orange/5">
+                <Card key={order.id} className="border-0 shadow-md rounded-3xl overflow-hidden">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm text-dragon-dark">#{order.orderNumber}</span>
-                      <Badge className={`${statusLabels[order.status]?.color} text-[10px] border-0`}>
-                        {statusLabels[order.status]?.icon} {statusLabels[order.status]?.label}
-                      </Badge>
-                    </div>
-                    <div className="space-y-1.5 mb-3">
-                      <div className="flex items-start gap-2 text-xs">
-                        <MapPin className="w-3.5 h-3.5 text-dragon-red shrink-0 mt-0.5" />
-                        <span>{order.address || 'Hlavná 42, Hlohovec'}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Pripravené od: {order.estimatedTime}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        className="flex-1 bg-dragon-red hover:bg-dragon-red-dark text-white text-xs"
-                        onClick={() => changeStatus(order.id, 'COURIER_ASSIGNED')}
-                      >
-                        <Navigation className="w-3.5 h-3.5 mr-1" />
-                        Prevziať objednávku
+                    <OrderHeader order={order} />
+                    <OrderSummary order={order} />
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <Button className="bg-dragon-red hover:bg-dragon-red-dark text-white rounded-2xl" onClick={() => changeOrder(order.id, 'COURIER_ASSIGNED', 'Kurier prijal objednavku')}>
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Prijať
                       </Button>
-                      <Button variant="outline" size="sm" className="text-xs">
-                        <Phone className="w-3.5 h-3.5" />
+                      <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 rounded-2xl" onClick={() => releaseOrder(order.id)}>
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Odmietnuť
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               ))}
-            </div>
-          </div>
-        )}
+            </TabsContent>
 
-        {/* Active deliveries */}
-        {assignedOrders.length > 0 && (
-          <div className="mb-6">
-            <h3 className="font-bold text-sm text-dragon-dark mb-3 flex items-center gap-2">
-              <Navigation className="w-4 h-4 text-dragon-red" />
-              Na ceste ({assignedOrders.length})
-            </h3>
-            <div className="space-y-3">
-              {assignedOrders.map((order) => {
-                const currentStep = getStepForStatus(order.status)
+            <TabsContent value="active" className="space-y-3">
+              {activeOrders.length === 0 && <EmptyState title="Žiadne aktívne doručenia" text="Prijaté objednávky sa zobrazia tu." />}
+              {activeOrders.map((order) => {
                 const nextAction = getNextAction(order.status)
-
                 return (
-                  <Card key={order.id} className="border-0 shadow-md bg-dragon-red/5">
+                  <Card key={order.id} className="border-0 shadow-md rounded-3xl overflow-hidden">
                     <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-bold text-sm text-dragon-dark">#{order.orderNumber}</span>
-                        <Badge className={`${statusLabels[order.status]?.color} text-[10px] border-0`}>
-                          {statusLabels[order.status]?.icon} {statusLabels[order.status]?.label}
-                        </Badge>
-                      </div>
-
-                      {/* Step indicator 1→2→3→4 */}
-                      <div className="flex items-center justify-between mb-4 px-1">
-                        {COURIER_STEPS.map((cs, idx) => {
-                          const isActive = currentStep >= cs.step
-                          const isCurrentStep = currentStep === cs.step
-                          return (
-                            <div key={cs.step} className="flex items-center flex-1">
-                              <div className="flex flex-col items-center">
-                                <div
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                                    isCurrentStep
-                                      ? 'bg-dragon-red text-white ring-2 ring-dragon-red/30 scale-110'
-                                      : isActive
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-gray-200 text-gray-400'
-                                  }`}
-                                >
-                                  {isActive ? (currentStep > cs.step ? '✓' : cs.step) : cs.step}
-                                </div>
-                                <span className={`text-[9px] mt-1 text-center max-w-[60px] leading-tight ${
-                                  isCurrentStep ? 'text-dragon-red font-semibold' : isActive ? 'text-green-600' : 'text-gray-400'
-                                }`}>
-                                  {cs.label}
-                                </span>
-                              </div>
-                              {idx < COURIER_STEPS.length - 1 && (
-                                <div className={`flex-1 h-0.5 mx-1 mt-[-12px] ${
-                                  currentStep > cs.step ? 'bg-green-500' : 'bg-gray-200'
-                                }`} />
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      {/* Order details */}
-                      <div className="bg-white rounded-lg p-3 mb-3">
-                        <div className="flex items-start gap-2 mb-2">
-                          <MapPin className="w-4 h-4 text-dragon-red shrink-0 mt-0.5" />
-                          <div>
-                            <div className="text-sm font-medium">{order.address || 'Hlavná 15, Hlohovec'}</div>
-                            <div className="text-xs text-muted-foreground">Hlohovec</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>{order.customerPhone}</span>
-                        </div>
-                      </div>
-
-                      {/* Items summary */}
-                      <div className="text-xs text-muted-foreground mb-3">
-                        {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
-                      </div>
-
-                      {order.paymentMethod.includes('Hotovosť') && (
-                        <div className="bg-amber-50 rounded-lg p-2 mb-3 flex items-center gap-2">
-                          <DollarSign className="w-4 h-4 text-amber-600" />
-                          <span className="text-xs text-amber-700 font-medium">
-                            Hotovosť: {order.total.toFixed(2)}€
-                          </span>
-                        </div>
-                      )}
-
-                      {order.notes && (
-                        <div className="text-xs text-muted-foreground mb-3">
-                          📝 {order.notes}
-                        </div>
-                      )}
-
-                      {/* Action button based on current status */}
+                      <OrderHeader order={order} />
+                      <StepBar status={order.status} />
+                      <OrderSummary order={order} />
                       {nextAction && (
-                        <Button
-                          className="w-full bg-dragon-red hover:bg-dragon-red-dark text-white text-xs mb-2"
-                          onClick={() => changeStatus(order.id, nextAction.nextStatus)}
-                        >
-                          {order.status === 'COURIER_ASSIGNED' && <Footprints className="w-3.5 h-3.5 mr-1" />}
-                          {order.status === 'COURIER_ON_WAY' && <Package className="w-3.5 h-3.5 mr-1" />}
-                          {order.status === 'PICKED_UP' && <Navigation className="w-3.5 h-3.5 mr-1" />}
-                          {order.status === 'OUT_FOR_DELIVERY' && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+                        <Button className="w-full bg-dragon-red hover:bg-dragon-red-dark text-white rounded-2xl mt-4" onClick={() => changeOrder(order.id, nextAction.nextStatus)}>
+                          {order.status === 'COURIER_ASSIGNED' && <Footprints className="w-4 h-4 mr-2" />}
+                          {order.status === 'COURIER_ON_WAY' && <Package className="w-4 h-4 mr-2" />}
+                          {order.status === 'PICKED_UP' && <Navigation className="w-4 h-4 mr-2" />}
+                          {order.status === 'OUT_FOR_DELIVERY' && <CheckCircle2 className="w-4 h-4 mr-2" />}
                           {nextAction.label}
                         </Button>
                       )}
-
-                      {/* Problem button */}
                       {problemOrderId === order.id ? (
-                        <div className="space-y-2">
-                          <Input
-                            placeholder="Dôvod problému..."
-                            value={problemReason}
-                            onChange={(e) => setProblemReason(e.target.value)}
-                            className="text-xs border-red-300 focus:border-red-500"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs"
-                              onClick={() => handleProblem(order.id)}
-                              disabled={!problemReason.trim()}
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                              Nahlásiť problém
+                        <div className="space-y-2 mt-3">
+                          <Input placeholder="Dôvod problému..." value={problemReason} onChange={(event) => setProblemReason(event.target.value)} />
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button className="bg-red-600 hover:bg-red-700 text-white rounded-2xl" disabled={!problemReason.trim()} onClick={() => changeOrder(order.id, 'PROBLEM', problemReason)}>
+                              Nahlásiť
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => { setProblemOrderId(null); setProblemReason('') }}
-                            >
+                            <Button variant="outline" className="rounded-2xl" onClick={() => setProblemOrderId(null)}>
                               Zrušiť
                             </Button>
                           </div>
                         </div>
                       ) : (
-                        <Button
-                          variant="outline"
-                          className="w-full text-red-600 border-red-200 hover:bg-red-50 text-xs"
-                          onClick={() => setProblemOrderId(order.id)}
-                        >
-                          <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                        <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50 rounded-2xl mt-2" onClick={() => setProblemOrderId(order.id)}>
+                          <AlertTriangle className="w-4 h-4 mr-2" />
                           Problém s objednávkou
                         </Button>
                       )}
@@ -446,55 +456,103 @@ export function CourierPanel() {
                   </Card>
                 )
               })}
-            </div>
-          </div>
-        )}
+            </TabsContent>
 
-        {/* Problem orders */}
-        {problemOrders.length > 0 && (
-          <div className="mb-6">
-            <h3 className="font-bold text-sm text-red-600 mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              Problémové objednávky
-            </h3>
-            <div className="space-y-3">
-              {problemOrders.map((order) => (
-                <Card key={order.id} className="border-0 shadow-md bg-red-50">
+            <TabsContent value="done" className="space-y-3">
+              <Card className="border-0 shadow-sm rounded-3xl">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Doručené objednávky</div>
+                    <div className="text-2xl font-bold text-dragon-dark">{completedOrders.length}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Suma spolu</div>
+                    <div className="text-2xl font-bold text-dragon-red">{eur(totals.deliveredTotal)}</div>
+                  </div>
+                </CardContent>
+              </Card>
+              {completedOrders.length === 0 && <EmptyState title="Zatiaľ nič doručené" text="Po doručení objednávky sa zobrazí história a suma." />}
+              {completedOrders.map((order) => (
+                <Card key={order.id} className="border-0 shadow-sm rounded-3xl">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm text-red-700">#{order.orderNumber}</span>
-                      <Badge className="bg-red-100 text-red-700 text-[10px] border-0">
-                        ⚠️ Problém
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground mb-2">
-                      {order.address} • {order.customerName}
-                    </div>
-                    {order.notes && (
-                      <div className="text-xs text-red-600 bg-red-100 rounded p-2 mb-2">
-                        📝 {order.notes}
-                      </div>
-                    )}
+                    <OrderHeader order={order} compact />
+                    <div className="text-xs text-muted-foreground mt-2">{order.customerName} - {order.address}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</div>
                   </CardContent>
                 </Card>
               ))}
-            </div>
-          </div>
-        )}
+            </TabsContent>
 
-        {assignedOrders.length === 0 && waitingOrders.length === 0 && (
-          <div className="text-center py-16">
-            <div className="text-5xl mb-3">🛵</div>
-            <h2 className="text-xl font-bold text-dragon-dark mb-2">Žiadne aktívne doručenia</h2>
-            <p className="text-sm text-muted-foreground">
-              {isAvailable
-                ? 'Keď bude nová objednávka, zobrazí sa tu'
-                : 'Zapnite dostupnosť, aby ste mohli prijímať objednávky'}
-            </p>
-          </div>
-        )}
+            <TabsContent value="problem" className="space-y-3">
+              {problemOrders.length === 0 && <EmptyState title="Žiadne problémové objednávky" text="Tu sa objavia objednávky označené ako problém." />}
+              {problemOrders.map((order) => (
+                <Card key={order.id} className="border-0 shadow-md rounded-3xl bg-red-50">
+                  <CardContent className="p-4">
+                    <OrderHeader order={order} compact />
+                    <OrderSummary order={order} />
+                  </CardContent>
+                </Card>
+              ))}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </StaffGate>
+  )
+}
+
+function OrderHeader({ order, compact = false }: { order: OrderListItem; compact?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3 mb-3">
+      <div>
+        <div className="flex items-center gap-2">
+          <span className={`${compact ? 'text-base' : 'text-lg'} font-bold text-dragon-dark`}>#{order.orderNumber}</span>
+          <Badge className={`${statusLabels[order.status]?.color || 'bg-muted text-foreground'} text-[10px] border-0`}>
+            {statusLabels[order.status]?.label || order.status}
+          </Badge>
+        </div>
+        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+          <Clock className="w-3 h-3" />
+          {order.createdAt || order.estimatedTime}
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-xl font-bold text-dragon-red">{eur(order.total)}</div>
+        <div className="text-[10px] text-muted-foreground">{order.paymentMethod}</div>
       </div>
     </div>
-    </StaffGate>
+  )
+}
+
+function StepBar({ status }: { status: string }) {
+  const currentStep = getStepForStatus(status)
+  return (
+    <div className="flex items-center justify-between mb-4 px-1">
+      {COURIER_STEPS.map((step, index) => {
+        const isActive = currentStep >= step.step
+        const isCurrent = currentStep === step.step
+        return (
+          <div key={step.status} className="flex items-center flex-1">
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-dragon-red text-white ring-4 ring-dragon-red/15' : isActive ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                {isActive && !isCurrent ? '✓' : step.step}
+              </div>
+              <span className={`text-[9px] mt-1 text-center max-w-[58px] leading-tight ${isCurrent ? 'text-dragon-red font-semibold' : 'text-muted-foreground'}`}>{step.label}</span>
+            </div>
+            {index < COURIER_STEPS.length - 1 && <div className={`flex-1 h-0.5 mx-1 -mt-4 ${currentStep > step.step ? 'bg-green-500' : 'bg-gray-200'}`} />}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function EmptyState({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="text-center py-14 rounded-3xl bg-white shadow-sm">
+      <div className="text-4xl mb-3">🛵</div>
+      <h2 className="text-lg font-bold text-dragon-dark">{title}</h2>
+      <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">{text}</p>
+    </div>
   )
 }

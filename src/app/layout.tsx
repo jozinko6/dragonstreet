@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { PwaRegister } from "@/components/dragon/PwaRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,6 +21,13 @@ export const metadata: Metadata = {
   authors: [{ name: "Dragon Street Food" }],
   icons: {
     icon: "/images/dragon-logo.png",
+    apple: "/images/dragon-logo.png",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Dragon",
+    statusBarStyle: "black-translucent",
   },
   openGraph: {
     title: "Dragon Street Food Hlohovec",
@@ -41,6 +49,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <PwaRegister />
       </body>
     </html>
   );

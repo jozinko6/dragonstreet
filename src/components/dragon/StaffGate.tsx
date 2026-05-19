@@ -14,6 +14,7 @@ interface StaffGateProps {
 }
 
 export function StaffGate({ role, title, children }: StaffGateProps) {
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isChecking, setIsChecking] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -43,7 +44,7 @@ export function StaffGate({ role, title, children }: StaffGateProps) {
       const response = await fetch('/api/staff-auth', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ role, password }),
+        body: JSON.stringify({ role, password, email }),
       })
       const json = await response.json()
       if (!response.ok || !json.success) {
@@ -76,6 +77,19 @@ export function StaffGate({ role, title, children }: StaffGateProps) {
             </div>
           </div>
           <form onSubmit={submit} className="space-y-4">
+            {role === 'courier' && (
+              <div className="space-y-2">
+                <Label htmlFor={`${role}-email`}>Email kuriéra</Label>
+                <Input
+                  id={`${role}-email`}
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  placeholder="napr. kurier@dragonstreetfood.sk"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor={`${role}-password`}>Heslo</Label>
               <Input
