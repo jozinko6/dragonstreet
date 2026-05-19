@@ -19,6 +19,7 @@ import {
   Clock,
   Download,
   Footprints,
+  LogOut,
   MapPin,
   Navigation,
   Package,
@@ -351,6 +352,15 @@ export function CourierPanel() {
     setInstallPrompt(null)
   }
 
+  const logoutCourier = async () => {
+    await fetch('/api/staff-auth', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ role: 'courier' }),
+    })
+    window.location.reload()
+  }
+
   return (
     <StaffGate role="courier" title="Kuriérsky panel">
       <div className="animate-float-up bg-muted/30 min-h-screen">
@@ -368,11 +378,23 @@ export function CourierPanel() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="availability" className="text-xs text-white/70">
-                  {selectedCourier?.isAvailable ? 'Dostupný' : 'Pauza'}
-                </Label>
-                <Switch id="availability" checked={Boolean(selectedCourier?.isAvailable)} onCheckedChange={updateAvailability} />
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="availability" className="text-xs text-white/70">
+                    {selectedCourier?.isAvailable ? 'Dostupný' : 'Pauza'}
+                  </Label>
+                  <Switch id="availability" checked={Boolean(selectedCourier?.isAvailable)} onCheckedChange={updateAvailability} />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={logoutCourier}
+                  className="h-8 rounded-full bg-white/10 px-3 text-xs text-white hover:bg-white/20 hover:text-white"
+                >
+                  <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                  Odhlásiť
+                </Button>
               </div>
             </div>
 
