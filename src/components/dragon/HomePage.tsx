@@ -392,10 +392,10 @@ export function HomePage() {
       <section className="py-10 bg-dragon-dark/80">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-white/60 text-sm mb-4">Zdieľajte nás so priateľmi!</p>
-          <div className="flex justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
             <Button
               variant="outline"
-              className="border-white/20 text-white hover:bg-white/10 rounded-xl gap-2"
+              className="border-dragon-cream/80 bg-dragon-cream !text-dragon-dark hover:border-white hover:bg-white hover:!text-dragon-darker focus-visible:ring-dragon-orange/60 rounded-xl gap-2 shadow-md shadow-black/15"
               onClick={() => {
                 window.open(
                   `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`,
@@ -411,7 +411,7 @@ export function HomePage() {
             </Button>
             <Button
               variant="outline"
-              className="border-white/20 text-white hover:bg-white/10 rounded-xl gap-2"
+              className="border-dragon-cream/80 bg-dragon-cream !text-dragon-dark hover:border-white hover:bg-white hover:!text-dragon-darker focus-visible:ring-dragon-orange/60 rounded-xl gap-2 shadow-md shadow-black/15"
               onClick={() => {
                 const text = 'Skvelé street food v Hlohovci! Burgre, kebab, pinsa a viac – objednaj online na Dragon Street Food!'
                 if (navigator.clipboard) {
