@@ -128,6 +128,20 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  @media (max-width: 767px) {
+    body {
+      padding-bottom: calc(72px + env(safe-area-inset-bottom));
+      background: #fbf7f1;
+    }
+  }
+}
+
+@media (max-width: 767px) {
+  .mobile-app-surface {
+    border-radius: 1.25rem;
+    box-shadow: 0 10px 30px rgba(26, 26, 46, 0.08);
+  }
 }
 
 /* Custom scrollbar */

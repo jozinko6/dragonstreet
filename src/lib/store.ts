@@ -12,12 +12,15 @@ export type Page =
   | 'courier'
   | 'about'
   | 'contact'
+  | 'legal'
 
 interface NavigationState {
   currentPage: Page
   navigate: (page: Page) => void
   orderId: string | null
   setOrderId: (id: string | null) => void
+  legalSlug: 'terms' | 'privacy'
+  navigateLegal: (slug: 'terms' | 'privacy') => void
 }
 
 export const useNavigation = create<NavigationState>((set) => ({
@@ -28,6 +31,11 @@ export const useNavigation = create<NavigationState>((set) => ({
   },
   orderId: null,
   setOrderId: (id) => set({ orderId: id }),
+  legalSlug: 'terms',
+  navigateLegal: (slug) => {
+    set({ currentPage: 'legal', legalSlug: slug })
+    window.location.hash = `legal-${slug}`
+  },
 }))
 
 // ===== CART STORE =====
@@ -172,7 +180,7 @@ export const useOrder = create<OrderState>((set) => ({
 }))
 
 // ===== ADMIN STORE =====
-export type AdminTab = 'orders' | 'menu' | 'couriers' | 'stats' | 'marketing'
+export type AdminTab = 'orders' | 'menu' | 'content' | 'couriers' | 'stats' | 'marketing'
 export type KitchenTab = 'active' | 'completed'
 export type CourierTab = 'available' | 'active' | 'completed'
 

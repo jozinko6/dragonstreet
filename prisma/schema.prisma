@@ -28,6 +28,27 @@ model RestaurantSettings {
   updatedAt             DateTime @updatedAt
 }
 
+model SiteContent {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model LegalDocument {
+  slug      String   @id
+  title     String
+  content   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([updatedAt])
+}
+
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
 model MenuCategory {

@@ -6,6 +6,7 @@ import { statusLabels, menuItems, deliveryZones } from '@/lib/data'
 import type { MenuItem, MenuResponse } from '@/lib/menu-api'
 import { mapApiOrder, type OrderListItem } from '@/lib/order-api'
 import { StaffGate } from '@/components/dragon/StaffGate'
+import { AdminContentTab } from '@/components/dragon/AdminContentTab'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -21,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Settings, ShoppingBag, UtensilsCrossed, Bike, BarChart3,
+  Settings, ShoppingBag, UtensilsCrossed, Bike, BarChart3, FileText,
   Clock, Phone, MapPin, ChevronRight, Search, Eye, UserPlus,
   AlertTriangle, Copy, Check, Megaphone, Star, Flame, Upload, Trash2, Pencil, Save
 } from 'lucide-react'
@@ -48,6 +49,10 @@ export function AdminPanel() {
               <UtensilsCrossed className="w-3.5 h-3.5 mr-1.5" />
               Menu
             </TabsTrigger>
+            <TabsTrigger value="content" className="text-xs">
+              <FileText className="w-3.5 h-3.5 mr-1.5" />
+              Obsah
+            </TabsTrigger>
             <TabsTrigger value="couriers" className="text-xs">
               <Bike className="w-3.5 h-3.5 mr-1.5" />
               Kuriéri
@@ -67,6 +72,9 @@ export function AdminPanel() {
           </TabsContent>
           <TabsContent value="menu">
             <AdminMenuTab />
+          </TabsContent>
+          <TabsContent value="content">
+            <AdminContentTab />
           </TabsContent>
           <TabsContent value="couriers">
             <CouriersTab />

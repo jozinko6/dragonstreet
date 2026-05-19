@@ -13,6 +13,9 @@ import { KitchenPanel } from '@/components/dragon/KitchenPanel'
 import { CourierPanel } from '@/components/dragon/CourierPanel'
 import { AboutPage } from '@/components/dragon/AboutPage'
 import { ContactPage } from '@/components/dragon/ContactPage'
+import { LegalPage } from '@/components/dragon/LegalPage'
+import { CookieBanner } from '@/components/dragon/CookieBanner'
+import { MobileAppNav } from '@/components/dragon/MobileAppNav'
 
 const pageComponents: Record<Page, React.ComponentType> = {
   home: HomePage,
@@ -24,15 +27,20 @@ const pageComponents: Record<Page, React.ComponentType> = {
   courier: CourierPanel,
   about: AboutPage,
   contact: ContactPage,
+  legal: LegalPage,
 }
 
 export default function Home() {
-  const { currentPage, navigate } = useNavigation()
+  const { currentPage, navigate, navigateLegal } = useNavigation()
 
   // Hash-based routing
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '')
+      if (hash === 'legal-terms' || hash === 'legal-privacy') {
+        navigateLegal(hash.replace('legal-', '') as 'terms' | 'privacy')
+        return
+      }
       if (hash && isValidPage(hash)) {
         navigate(hash as Page)
       }
@@ -56,11 +64,13 @@ export default function Home() {
         <PageComponent />
       </main>
       <Footer />
+      <CookieBanner />
+      <MobileAppNav />
     </div>
   )
 }
 
 function isValidPage(hash: string): boolean {
-  const validPages: Page[] = ['home', 'menu', 'checkout', 'order-tracking', 'admin', 'kitchen', 'courier', 'about', 'contact']
+  const validPages: Page[] = ['home', 'menu', 'checkout', 'order-tracking', 'admin', 'kitchen', 'courier', 'about', 'contact', 'legal']
   return validPages.includes(hash as Page)
 }
