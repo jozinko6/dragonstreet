@@ -55,7 +55,7 @@ export function CookieBanner() {
           <Button className="bg-dragon-red hover:bg-dragon-red-dark text-white flex-1" onClick={() => close('accepted')}>
             {content.acceptButton}
           </Button>
-          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 flex-1" onClick={() => close('necessary')}>
+          <Button variant="outline" className="border-dragon-cream bg-dragon-cream text-dragon-dark hover:bg-white hover:text-dragon-dark flex-1" onClick={() => close('necessary')}>
             {content.rejectButton}
           </Button>
         </div>
