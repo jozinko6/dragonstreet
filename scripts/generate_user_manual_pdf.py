@@ -462,11 +462,24 @@ def build_story() -> list:
                 ["Časť panela", "Ako ju používať"],
                 ["Dostupnosť", "Prepínač zapnite, keď kuriér môže prijímať objednávky. Vypnite pri pauze alebo konci smeny."],
                 ["Nové", "Objednávky pripravené v kuchyni. Kuriér ich môže prijať alebo odmietnuť."],
-                ["Aktívne", "Objednávky, ktoré kuriér prijal a práve ich doručuje. Pri každej je suma, adresa, telefón a položky."],
-                ["Doručené", "História doručených objednávok so sumou za každú objednávku a celkovým súčtom."],
+                ["Aktívne", "Objednávky, ktoré kuriér prijal a práve ich doručuje. Pri každej vidí zárobok kuriéra, cenu objednávky, adresu, telefón a položky."],
+                ["Doručené", "História doručených objednávok so zárobkom za každú objednávku, cenou objednávky a celkovým súčtom."],
                 ["Problém", "Objednávky označené ako problém, napríklad zlá adresa alebo nedostupný zákazník."],
                 ["Notifikácie", "Tlačidlom Zapnúť notifikácie povolíte upozornenia v prehliadači. Zvuk sa dá zapnúť alebo vypnúť samostatne."],
                 ["Pridať na plochu", "Na mobile použite tlačidlo Pridať na plochu alebo menu prehliadača. Panel sa potom otvorí ako samostatná aplikácia."],
+            ],
+            [4.4 * cm, 12.6 * cm],
+        )
+    )
+    story += subsection("Cena objednávky a zárobok kuriéra")
+    story.append(
+        table(
+            [
+                ["Údaj v paneli", "Čo znamená"],
+                ["Zárobok kuriéra", "Suma, ktorú kuriér zarobí za doručenie konkrétnej objednávky. Aktuálne sa počíta ako poplatok za doručenie pri objednávke."],
+                ["Cena objednávky", "Celková suma platená zákazníkom. Zahŕňa jedlo, doplnky, prípadný poplatok za doručenie a zľavy podľa nastavenia objednávky."],
+                ["Kam smeruje objednávka", "Adresa doručenia pre kuriéra. Pri každej objednávke ju treba skontrolovať spolu s telefónom a poznámkou."],
+                ["Tržba v doručených", "Súčet cien doručených objednávok. Nie je to zárobok kuriéra, ale suma objednávok pre prevádzku."],
             ],
             [4.4 * cm, 12.6 * cm],
         )

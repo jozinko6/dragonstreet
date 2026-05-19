@@ -8,6 +8,8 @@ export interface OrderListItem {
   address: string
   items: { name: string; quantity: number; price: number }[]
   total: number
+  deliveryFee: number
+  courierEarning: number
   paymentMethod: string
   notes: string
   createdAt: string
@@ -35,6 +37,7 @@ interface ApiOrder {
   deliveryCity?: string
   deliveryNotes?: string
   totalAmount: number
+  deliveryFee?: number
   paymentMethod: string
   notes?: string
   createdAt: string
@@ -68,6 +71,8 @@ export function mapApiOrder(order: ApiOrder): OrderListItem {
       price: item.unitPrice,
     })),
     total: order.totalAmount,
+    deliveryFee: order.deliveryFee || 0,
+    courierEarning: order.deliveryFee || 0,
     paymentMethod: order.paymentMethod,
     notes: [order.notes, order.deliveryNotes].filter(Boolean).join(' | '),
     createdAt: Number.isNaN(createdAt.getTime())

@@ -124,6 +124,35 @@ function OrderSummary({ order }: { order: OrderListItem }) {
   )
 }
 
+function OrderEarningDetails({ order }: { order: OrderListItem }) {
+  return (
+    <div className="space-y-2 text-xs mb-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-2xl bg-dragon-red/10 border border-dragon-red/15 p-3">
+          <div className="text-[10px] uppercase tracking-wide text-dragon-red font-semibold">Zárobok kuriéra</div>
+          <div className="text-xl font-bold text-dragon-red">{eur(order.courierEarning)}</div>
+        </div>
+        <div className="rounded-2xl bg-muted/60 border border-border p-3">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Cena objednávky</div>
+          <div className="text-xl font-bold text-dragon-dark">{eur(order.total)}</div>
+        </div>
+      </div>
+      <div className="rounded-2xl bg-white border border-border p-3">
+        <div className="flex items-start gap-2">
+          <MapPin className="w-4 h-4 text-dragon-red shrink-0 mt-0.5" />
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Kam smeruje objednávka</div>
+            <div className="font-medium text-dragon-dark">{order.address || 'Adresa nie je vyplnená'}</div>
+          </div>
+        </div>
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Zárobok kuriéra je poplatok za doručenie pri tejto objednávke. Cena objednávky je celková suma platená zákazníkom.
+      </p>
+    </div>
+  )
+}
+
 export function CourierPanel() {
   const [orders, setOrders] = useState<OrderListItem[]>([])
   const [couriers, setCouriers] = useState<CourierOption[]>([])
@@ -227,7 +256,7 @@ export function CourierPanel() {
       if (notificationsEnabled && 'Notification' in window) {
         freshOrders.slice(0, 3).forEach((order) => {
           new Notification(`Nová objednávka ${order.orderNumber}`, {
-            body: `${order.address || 'Rozvoz'} - ${eur(order.total)}`,
+            body: `${order.address || 'Rozvoz'} - zárobok ${eur(order.courierEarning)}, objednávka ${eur(order.total)}`,
             icon: '/images/dragon-logo.png',
           })
         })
@@ -237,9 +266,10 @@ export function CourierPanel() {
   }, [waitingOrders, notificationsEnabled, soundEnabled])
 
   const totals = useMemo(() => {
-    const deliveredTotal = completedOrders.reduce((sum, order) => sum + order.total, 0)
-    const activeTotal = activeOrders.reduce((sum, order) => sum + order.total, 0)
-    return { deliveredTotal, activeTotal }
+    const deliveredOrderTotal = completedOrders.reduce((sum, order) => sum + order.total, 0)
+    const deliveredEarnings = completedOrders.reduce((sum, order) => sum + order.courierEarning, 0)
+    const activeEarnings = activeOrders.reduce((sum, order) => sum + order.courierEarning, 0)
+    return { deliveredOrderTotal, deliveredEarnings, activeEarnings }
   }, [activeOrders, completedOrders])
 
   const updateAvailability = async (available: boolean) => {
@@ -352,12 +382,12 @@ export function CourierPanel() {
                 <div className="text-[10px] text-white/50">Nové</div>
               </div>
               <div className="rounded-2xl bg-white/8 p-3">
-                <div className="text-lg font-bold">{eur(totals.activeTotal)}</div>
-                <div className="text-[10px] text-white/50">Na ceste</div>
+                <div className="text-lg font-bold">{eur(totals.activeEarnings)}</div>
+                <div className="text-[10px] text-white/50">Zárobok aktívne</div>
               </div>
               <div className="rounded-2xl bg-white/8 p-3">
-                <div className="text-lg font-bold">{eur(totals.deliveredTotal)}</div>
-                <div className="text-[10px] text-white/50">Doručené</div>
+                <div className="text-lg font-bold">{eur(totals.deliveredEarnings)}</div>
+                <div className="text-[10px] text-white/50">Zárobok doručené</div>
               </div>
             </div>
           </div>
@@ -401,6 +431,7 @@ export function CourierPanel() {
                 <Card key={order.id} className="border-0 shadow-md rounded-3xl overflow-hidden">
                   <CardContent className="p-4">
                     <OrderHeader order={order} />
+                    <OrderEarningDetails order={order} />
                     <OrderSummary order={order} />
                     <div className="grid grid-cols-2 gap-2 mt-4">
                       <Button className="bg-dragon-red hover:bg-dragon-red-dark text-white rounded-2xl" onClick={() => changeOrder(order.id, 'COURIER_ASSIGNED', 'Kurier prijal objednavku')}>
@@ -426,6 +457,7 @@ export function CourierPanel() {
                     <CardContent className="p-4">
                       <OrderHeader order={order} />
                       <StepBar status={order.status} />
+                      <OrderEarningDetails order={order} />
                       <OrderSummary order={order} />
                       {nextAction && (
                         <Button className="w-full bg-dragon-red hover:bg-dragon-red-dark text-white rounded-2xl mt-4" onClick={() => changeOrder(order.id, nextAction.nextStatus)}>
@@ -468,8 +500,9 @@ export function CourierPanel() {
                     <div className="text-2xl font-bold text-dragon-dark">{completedOrders.length}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Suma spolu</div>
-                    <div className="text-2xl font-bold text-dragon-red">{eur(totals.deliveredTotal)}</div>
+                    <div className="text-sm text-muted-foreground">Zárobok kuriéra</div>
+                    <div className="text-2xl font-bold text-dragon-red">{eur(totals.deliveredEarnings)}</div>
+                    <div className="text-[11px] text-muted-foreground">Tržba {eur(totals.deliveredOrderTotal)}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -478,7 +511,17 @@ export function CourierPanel() {
                 <Card key={order.id} className="border-0 shadow-sm rounded-3xl">
                   <CardContent className="p-4">
                     <OrderHeader order={order} compact />
-                    <div className="text-xs text-muted-foreground mt-2">{order.customerName} - {order.address}</div>
+                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                      <div className="rounded-xl bg-dragon-red/10 p-2">
+                        <div className="text-[10px] text-dragon-red font-semibold">Zárobok</div>
+                        <div className="font-bold text-dragon-red">{eur(order.courierEarning)}</div>
+                      </div>
+                      <div className="rounded-xl bg-muted/60 p-2">
+                        <div className="text-[10px] text-muted-foreground font-semibold">Cena objednávky</div>
+                        <div className="font-bold text-dragon-dark">{eur(order.total)}</div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">Kam smeruje: {order.customerName} - {order.address}</div>
                     <div className="text-xs text-muted-foreground mt-1">{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</div>
                   </CardContent>
                 </Card>
@@ -491,6 +534,7 @@ export function CourierPanel() {
                 <Card key={order.id} className="border-0 shadow-md rounded-3xl bg-red-50">
                   <CardContent className="p-4">
                     <OrderHeader order={order} compact />
+                    <OrderEarningDetails order={order} />
                     <OrderSummary order={order} />
                   </CardContent>
                 </Card>
@@ -519,8 +563,9 @@ function OrderHeader({ order, compact = false }: { order: OrderListItem; compact
         </div>
       </div>
       <div className="text-right">
-        <div className="text-xl font-bold text-dragon-red">{eur(order.total)}</div>
-        <div className="text-[10px] text-muted-foreground">{order.paymentMethod}</div>
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Zarobíš</div>
+        <div className="text-xl font-bold text-dragon-red">{eur(order.courierEarning)}</div>
+        <div className="text-[10px] text-muted-foreground">Cena {eur(order.total)} · {order.paymentMethod}</div>
       </div>
     </div>
   )
