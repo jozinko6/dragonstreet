@@ -134,6 +134,7 @@ export function CourierPanel() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
+  const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set())
   const seenNewOrderIds = useRef<Set<string>>(new Set())
   const hasLoadedOnce = useRef(false)
 
@@ -197,8 +198,8 @@ export function CourierPanel() {
   }, [])
 
   const waitingOrders = useMemo(
-    () => orders.filter((order) => order.status === 'READY_FOR_PICKUP' && (!order.courierId || order.courierId === selectedCourierId)),
-    [orders, selectedCourierId]
+    () => orders.filter((order) => order.status === 'READY_FOR_PICKUP' && !dismissedOrderIds.has(order.id) && (!order.courierId || order.courierId === selectedCourierId)),
+    [orders, selectedCourierId, dismissedOrderIds]
   )
   const activeOrders = useMemo(
     () => orders.filter((order) => ACTIVE_STATUSES.includes(order.status) && order.courierId === selectedCourierId),
@@ -280,6 +281,7 @@ export function CourierPanel() {
 
   const releaseOrder = async (orderId: string) => {
     const previousOrders = orders
+    setDismissedOrderIds((prev) => new Set(prev).add(orderId))
     setOrders((prev) => prev.map((order) => (order.id === orderId ? { ...order, courierId: '' } : order)))
 
     try {
