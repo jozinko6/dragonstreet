@@ -171,7 +171,7 @@ export async function PATCH(
       ['READY_FOR_PICKUP', 'COURIER_ASSIGNED', 'COURIER_ON_WAY', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(status)
 
     if (needsCourier) {
-      const autoCourierId = await findLeastBusyCourierId()
+      const autoCourierId = await findLeastBusyCourierId(existingOrder)
       if (autoCourierId) {
         updateData.courierId = autoCourierId
       } else if (status === 'COURIER_ASSIGNED') {

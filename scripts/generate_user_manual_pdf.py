@@ -395,7 +395,7 @@ def build_story() -> list:
                 ["Karta", "Na čo slúži"],
                 ["Objednávky", "Prehľad nových a aktívnych objednávok, zmena stavu, priradenie kuriéra a označenie problému."],
                 ["Menu", "Správa položiek menu: názov, kategória, cena, dostupnosť, obrázok, štítky a doplnky."],
-                ["Kuriéri", "Zapínanie online/dostupný stav kuriérov a kontrola ich aktívnych objednávok."],
+                ["Kuriéri", "Pridanie nového kuriéra, nastavenie emailu na prihlásenie, zapínanie online/dostupného stavu a kontrola aktívnych objednávok."],
                 ["Štatistiky", "Rýchly prehľad výkonu prevádzky a objednávok."],
                 ["Marketing", "Pomôcka na prípravu textov pre Facebook, Instagram a story."],
             ],
@@ -411,6 +411,19 @@ def build_story() -> list:
                 "Keď je jedlo hotové, nastavte Hotové / pripravené na vyzdvihnutie.",
                 "Pri rozvoze priraďte kuriéra alebo nechajte systém/kuriéra objednávku prevziať.",
                 "Ak je problém, použite stav Problém a zapíšte dôvod.",
+            ]
+        )
+    )
+
+    story += subsection("Správa kuriérov a automatické prideľovanie")
+    story.append(
+        bullet(
+            [
+                "Nového kuriéra pridáte v Admin > Kuriéri: vyplňte meno, priezvisko, email, telefón a typ vozidla.",
+                "Kuriér sa prihlasuje svojim emailom a spoločným kuriérskym heslom.",
+                "Objednávky na rozvoz sa automaticky priraďujú iba kuriérom, ktorí sú online a dostupní.",
+                "Algoritmus vyberá kuriéra podľa počtu aktívnych objednávok, nedávnych priradení a vhodnosti vozidla pre vzdialenejšie doručenie.",
+                "Ak nie je dostupný žiadny kuriér, objednávka ostane pripravená bez priradenia a admin ju môže priradiť ručne.",
             ]
         )
     )
@@ -455,7 +468,7 @@ def build_story() -> list:
     )
 
     story += section("7. Kuriérsky panel")
-    story.append(p(f"Kuriérsky panel otvoríte na <b>{ONLINE_URL}/#courier</b>. Kuriér sa prihlasuje emailom a heslom. Po prihlásení panel automaticky pracuje s jeho kuriérskym účtom, zobrazuje nové, aktívne, doručené a problémové objednávky."))
+    story.append(p(f"Kuriérsky panel otvoríte na <b>{ONLINE_URL}/#courier</b>. Kuriér sa prihlasuje emailom a heslom. Po prihlásení panel automaticky pracuje s jeho kuriérskym účtom, zobrazuje nové, aktívne, doručené a problémové objednávky. Tlačidlo Odhlásiť ukončí prístup a nastaví kuriéra offline."))
     story.append(
         table(
             [

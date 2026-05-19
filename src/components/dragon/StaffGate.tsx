@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, ReactNode, useEffect, useState } from 'react'
-import { Lock } from 'lucide-react'
+import { Lock, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -57,12 +57,43 @@ export function StaffGate({ role, title, children }: StaffGateProps) {
     }
   }
 
+  const logout = async () => {
+    setError('')
+    try {
+      await fetch('/api/staff-auth', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+    } finally {
+      setIsAuthenticated(false)
+      setEmail('')
+      setPassword('')
+    }
+  }
+
   if (isChecking) {
     return <div className="py-16 text-center text-sm text-muted-foreground">Overujem pristup...</div>
   }
 
   if (isAuthenticated) {
-    return <>{children}</>
+    return (
+      <div>
+        <div className="fixed right-4 bottom-4 z-50">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={logout}
+            className="rounded-full bg-white/95 shadow-lg border-border text-xs"
+          >
+            <LogOut className="w-3.5 h-3.5 mr-1.5" />
+            Odhlásiť
+          </Button>
+        </div>
+        {children}
+      </div>
+    )
   }
 
   return (

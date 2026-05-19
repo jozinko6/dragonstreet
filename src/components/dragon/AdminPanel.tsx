@@ -99,10 +99,19 @@ type CourierOption = {
   firstName: string
   lastName: string
   phone: string
+  email: string
   vehicleType: string
   isAvailable: boolean
   isOnline: boolean
   orders?: { id: string; orderNumber: string; status: string }[]
+}
+
+const emptyCourierForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  vehicleType: 'car',
 }
 
 function OrdersTab() {
@@ -817,6 +826,8 @@ function AdminMenuTab() {
 
 function CouriersTab() {
   const [couriers, setCouriers] = useState<CourierOption[]>([])
+  const [newCourier, setNewCourier] = useState(emptyCourierForm)
+  const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState('')
 
   const loadCouriers = async () => {
@@ -830,6 +841,28 @@ function CouriersTab() {
       setError('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kurierov sa nepodarilo nacitat')
+    }
+  }
+
+  const createCourier = async () => {
+    setError('')
+    setIsCreating(true)
+    try {
+      const response = await fetch('/api/couriers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(newCourier),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.error || 'Kuriera sa nepodarilo pridat')
+      }
+      setNewCourier(emptyCourierForm)
+      await loadCouriers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kuriera sa nepodarilo pridat')
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -864,12 +897,56 @@ function CouriersTab() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-dragon-dark">Kurieri</h3>
-        <Button className="bg-dragon-red hover:bg-dragon-red-dark text-white text-xs" disabled>
+        <Button
+          className="bg-dragon-red hover:bg-dragon-red-dark text-white text-xs"
+          onClick={createCourier}
+          disabled={isCreating || !newCourier.firstName.trim() || !newCourier.lastName.trim() || !newCourier.email.trim() || !newCourier.phone.trim()}
+        >
           <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-          Pridat kuriera
+          {isCreating ? 'Pridavam...' : 'Pridat kuriera'}
         </Button>
       </div>
       {error && <div className="mb-4 text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</div>}
+      <Card className="border-0 shadow-sm mb-4">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+            <Input
+              placeholder="Meno"
+              value={newCourier.firstName}
+              onChange={(event) => setNewCourier((prev) => ({ ...prev, firstName: event.target.value }))}
+            />
+            <Input
+              placeholder="Priezvisko"
+              value={newCourier.lastName}
+              onChange={(event) => setNewCourier((prev) => ({ ...prev, lastName: event.target.value }))}
+            />
+            <Input
+              type="email"
+              placeholder="Email na prihlasenie"
+              value={newCourier.email}
+              onChange={(event) => setNewCourier((prev) => ({ ...prev, email: event.target.value }))}
+            />
+            <Input
+              placeholder="Telefón"
+              value={newCourier.phone}
+              onChange={(event) => setNewCourier((prev) => ({ ...prev, phone: event.target.value }))}
+            />
+            <Select value={newCourier.vehicleType} onValueChange={(value) => setNewCourier((prev) => ({ ...prev, vehicleType: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Vozidlo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bicycle">Bicykel</SelectItem>
+                <SelectItem value="motorcycle">Motorka</SelectItem>
+                <SelectItem value="car">Auto</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Nový kuriér sa bude prihlasovať týmto emailom a spoločným kuriérskym heslom.
+          </p>
+        </CardContent>
+      </Card>
       <div className="space-y-3">
         {couriers.map((courier) => (
           <Card key={courier.id} className="border-0 shadow-sm">
@@ -892,7 +969,7 @@ function CouriersTab() {
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {courier.vehicleType} - {courier.phone} - {courier.orders?.length || 0} aktivnych
+                    {courier.vehicleType} - {courier.phone} - {courier.email || 'bez emailu'} - {courier.orders?.length || 0} aktivnych
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

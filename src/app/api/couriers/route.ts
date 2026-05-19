@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { autoAssignReadyOrders } from '@/lib/courier-assignment'
 import { requireStaffAuth } from '@/lib/staff-auth'
 
 // GET /api/couriers - List all couriers with their status
@@ -34,6 +35,59 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching couriers:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch couriers' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST /api/couriers - Create a courier from admin panel
+export async function POST(request: NextRequest) {
+  try {
+    const unauthorized = requireStaffAuth(request, ['admin'])
+    if (unauthorized) return unauthorized
+
+    const body = await request.json()
+    const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : ''
+    const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : ''
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : ''
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const vehicleType = typeof body.vehicleType === 'string' && body.vehicleType.trim() ? body.vehicleType.trim() : 'car'
+
+    if (!firstName || !lastName || !phone || !email) {
+      return NextResponse.json(
+        { success: false, error: 'Name, phone and email are required' },
+        { status: 400 }
+      )
+    }
+
+    const existingCourier = await db.courier.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true },
+    })
+    if (existingCourier) {
+      return NextResponse.json(
+        { success: false, error: 'Courier with this email already exists' },
+        { status: 409 }
+      )
+    }
+
+    const courier = await db.courier.create({
+      data: {
+        firstName,
+        lastName,
+        phone,
+        email,
+        vehicleType,
+        isAvailable: true,
+        isOnline: false,
+      },
+    })
+
+    return NextResponse.json({ success: true, data: courier }, { status: 201 })
+  } catch (error) {
+    console.error('Error creating courier:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to create courier' },
       { status: 500 }
     )
   }
@@ -78,6 +132,10 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: updateData,
     })
+
+    if (updatedCourier.isAvailable && updatedCourier.isOnline) {
+      await autoAssignReadyOrders()
+    }
 
     return NextResponse.json({
       success: true,

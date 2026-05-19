@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { autoAssignReadyOrders } from '@/lib/courier-assignment'
 import { getStaffPassword, staffCookieName, type StaffRole } from '@/lib/staff-auth'
 
 function isStaffRole(role: string): role is StaffRole {
@@ -74,6 +75,9 @@ export async function POST(request: NextRequest) {
       where: { id: courier.id },
       data: { isOnline: true, isAvailable: courier.isAvailable },
     })
+    if (courier.isAvailable) {
+      await autoAssignReadyOrders()
+    }
   }
 
   const response = NextResponse.json({ success: true, courierId })
@@ -90,6 +94,41 @@ export async function POST(request: NextRequest) {
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 12,
+      path: '/',
+    })
+  }
+  return response
+}
+
+export async function DELETE(request: NextRequest) {
+  const body = await request.json().catch(() => ({}))
+  const role = typeof body.role === 'string' ? body.role : request.nextUrl.searchParams.get('role') || ''
+  if (!isStaffRole(role)) {
+    return NextResponse.json({ success: false, error: 'Invalid role' }, { status: 400 })
+  }
+
+  const courierId = request.cookies.get('dragon_courier_id')?.value || ''
+  if (role === 'courier' && courierId) {
+    await db.courier.updateMany({
+      where: { id: courierId },
+      data: { isOnline: false },
+    })
+  }
+
+  const response = NextResponse.json({ success: true })
+  response.cookies.set(staffCookieName(role), '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 0,
+    path: '/',
+  })
+  if (role === 'courier') {
+    response.cookies.set('dragon_courier_id', '', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 0,
       path: '/',
     })
   }
